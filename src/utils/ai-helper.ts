@@ -1,0 +1,385 @@
+import { execa } from 'execa';
+import { logger } from './logger.js';
+import { DEFAULT_DEV_PORT } from './constants.js';
+
+export type AIInstallType = 'global' | 'local' | 'none';
+
+/**
+ * Check if Claude Code is installed globally
+ */
+export async function checkClaudeCodeInstalled(): Promise<boolean> {
+  try {
+    await execa('claude', ['--version'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install Claude Code
+ * Tries global first, falls back to local if global fails
+ */
+export async function installClaudeCode(
+  projectPath?: string
+): Promise<AIInstallType> {
+  // Try global install first
+  try {
+    logger.startSpinner('Installing Claude Code globally...');
+    await execa('npm', ['install', '-g', '@anthropic-ai/claude-code'], {
+      stdio: 'pipe',
+    });
+    logger.succeedSpinner('Installed globally!');
+    return 'global';
+  } catch (globalError) {
+    logger.failSpinner('Global install failed');
+
+    // Fallback to local install if projectPath provided
+    if (projectPath) {
+      try {
+        logger.startSpinner('Installing Claude Code locally...');
+        await execa('npm', ['install', '@anthropic-ai/claude-code'], {
+          cwd: projectPath,
+          stdio: 'pipe',
+        });
+        logger.succeedSpinner('Installed locally!');
+        return 'local';
+      } catch (localError) {
+        logger.failSpinner('Local install also failed');
+        logger.blank();
+        logger.error('Could not install Claude Code automatically');
+        logger.info('You can install it manually:');
+        logger.code('npm install -g @anthropic-ai/claude-code');
+        return 'none';
+      }
+    } else {
+      logger.blank();
+      logger.error('Could not install Claude Code globally');
+      logger.info('You can install it manually:');
+      logger.code('npm install -g @anthropic-ai/claude-code');
+      return 'none';
+    }
+  }
+}
+
+/**
+ * Launch Claude Code in the project directory
+ */
+export async function launchClaudeCode(
+  projectPath: string,
+  installType: AIInstallType,
+  initialPrompt?: string,
+  autoAccept: boolean = true,
+  features: string[] = []
+): Promise<void> {
+  logger.blank();
+  logger.success('🚀 Launching Claude Code in your project...');
+  logger.blank();
+  logger.info(`Your dev server is running at http://localhost:${DEFAULT_DEV_PORT}`);
+  logger.info('Claude Code will help you build your app!');
+  if (autoAccept) {
+    logger.info('💨 YOLO mode activated - The true vibe coding experience!');
+  } else {
+    logger.info('🔍 Review mode - You\'ll confirm each change');
+  }
+  logger.blank();
+
+  try {
+    if (installType === 'global') {
+      // Launch global claude with optional auto-accept and prompt
+      const args = [];
+
+      if (autoAccept) {
+        // Use acceptEdits + allowedTools for safe YOLO mode
+        args.push('--permission-mode', 'acceptEdits');
+
+        // Build allowed tools based on selected features
+        const needsSupabase = features.some(f =>
+          ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
+        );
+
+        const allowedTools = [
+          'Bash(npm:*)',
+          'Bash(npx:*)',
+          ...(needsSupabase ? ['Bash(supabase:*)'] : []),
+          'Bash(git:*)',
+          'Bash(node:*)',
+          'Bash(open:*)',
+          'Read',
+          'Glob',
+          'Grep'
+        ].join(' ');
+
+        // Whitelist development tools (space-separated list as single argument)
+        // Note: execa handles proper escaping automatically - don't add quotes
+        args.push('--allowedTools', allowedTools);
+      }
+
+      // Add -- to explicitly end options before positional argument
+      if (autoAccept) {
+        args.push('--');
+      }
+
+      // Initial prompt must come last (positional argument)
+      if (initialPrompt) {
+        args.push(initialPrompt);
+      }
+
+      // Debug: show the full command
+      logger.info('Launching: claude ' + args.join(' '));
+      logger.blank();
+
+      await execa('claude', args, {
+        cwd: projectPath,
+        stdio: 'inherit',
+      });
+    } else if (installType === 'local') {
+      // Launch with npx and optional auto-accept
+      const args = ['claude'];
+
+      if (autoAccept) {
+        // Use acceptEdits + allowedTools for safe YOLO mode
+        args.push('--permission-mode', 'acceptEdits');
+
+        // Build allowed tools based on selected features
+        const needsSupabase = features.some(f =>
+          ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
+        );
+
+        const allowedTools = [
+          'Bash(npm:*)',
+          'Bash(npx:*)',
+          ...(needsSupabase ? ['Bash(supabase:*)'] : []),
+          'Bash(git:*)',
+          'Bash(node:*)',
+          'Bash(open:*)',
+          'Read',
+          'Glob',
+          'Grep'
+        ].join(' ');
+
+        // Whitelist development tools (space-separated list as single argument)
+        // Note: execa handles proper escaping automatically - don't add quotes
+        args.push('--allowedTools', allowedTools);
+      }
+
+      // Add -- to explicitly end options before positional argument
+      if (autoAccept) {
+        args.push('--');
+      }
+
+      // Initial prompt must come last (positional argument)
+      if (initialPrompt) {
+        args.push(initialPrompt);
+      }
+
+      // Debug: show the full command
+      logger.info('Launching: npx ' + args.join(' '));
+      logger.blank();
+
+      await execa('npx', args, {
+        cwd: projectPath,
+        stdio: 'inherit',
+      });
+    }
+  } catch (error) {
+    logger.blank();
+    logger.error('Failed to launch Claude Code');
+    logger.info('You can launch it manually:');
+    logger.code(`cd ${projectPath}`);
+    if (autoAccept) {
+      logger.code(
+        'claude --permission-mode acceptEdits --allowedTools "Bash(npm:*)" "Bash(npx:*)" "Bash(supabase:*)" "Bash(git:*)"'
+      );
+    } else {
+      logger.code('claude');
+    }
+  }
+}
+
+// ============================================================================
+// Gemini CLI Functions
+// ============================================================================
+
+/**
+ * Check if Gemini CLI is installed globally
+ */
+export async function checkGeminiInstalled(): Promise<boolean> {
+  try {
+    await execa('gemini', ['--version'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install Gemini CLI
+ * Tries global first, falls back to local if global fails
+ */
+export async function installGemini(
+  projectPath?: string
+): Promise<AIInstallType> {
+  // Try global install first
+  try {
+    logger.startSpinner('Installing Gemini CLI globally...');
+    await execa('npm', ['install', '-g', '@google/gemini-cli'], {
+      stdio: 'pipe',
+    });
+    logger.succeedSpinner('Installed globally!');
+    return 'global';
+  } catch (globalError) {
+    logger.failSpinner('Global install failed');
+
+    // Fallback to local install if projectPath provided
+    if (projectPath) {
+      try {
+        logger.startSpinner('Installing Gemini CLI locally...');
+        await execa('npm', ['install', '@google/gemini-cli'], {
+          cwd: projectPath,
+          stdio: 'pipe',
+        });
+        logger.succeedSpinner('Installed locally!');
+        return 'local';
+      } catch (localError) {
+        logger.failSpinner('Local install also failed');
+        logger.blank();
+        logger.error('Could not install Gemini CLI automatically');
+        logger.info('You can install it manually:');
+        logger.code('npm install -g @google/gemini-cli');
+        return 'none';
+      }
+    } else {
+      logger.blank();
+      logger.error('Could not install Gemini CLI globally');
+      logger.info('You can install it manually:');
+      logger.code('npm install -g @google/gemini-cli');
+      return 'none';
+    }
+  }
+}
+
+/**
+ * Launch Gemini CLI in the project directory
+ */
+export async function launchGeminiCode(
+  projectPath: string,
+  installType: AIInstallType,
+  initialPrompt?: string,
+  autoAccept: boolean = true,
+  features: string[] = []
+): Promise<void> {
+  logger.blank();
+  logger.success('🚀 Launching Gemini in your project...');
+  logger.blank();
+  logger.info(`Your dev server is running at http://localhost:${DEFAULT_DEV_PORT}`);
+  logger.info('Gemini will help you build your app!');
+  if (autoAccept) {
+    logger.info('💨 YOLO mode activated - The true vibe coding experience!');
+  } else {
+    logger.info('🔍 Review mode - You\'ll confirm each change');
+  }
+  logger.blank();
+
+  try {
+    if (installType === 'global') {
+      // Launch global gemini with optional auto-accept and prompt
+      const args = [];
+
+      // Use the free flash model
+      args.push('--model', 'gemini-2.5-flash');
+
+      if (autoAccept) {
+        // Use --yolo for auto-accept mode
+        args.push('--yolo');
+
+        // Build allowed tools based on selected features
+        const needsSupabase = features.some(f =>
+          ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
+        );
+
+        // Whitelist development tools
+        const allowedTools = [
+          'bash',
+          'read',
+          'write',
+          'edit',
+          'glob',
+          'grep',
+          ...(needsSupabase ? ['supabase'] : []),
+        ];
+
+        // Add allowed tools as comma-separated string
+        args.push('--allowed-tools', allowedTools.join(','));
+      }
+
+      // Initial prompt as --prompt-interactive flag (must be quoted)
+      if (initialPrompt) {
+        args.push('--prompt-interactive', initialPrompt);
+      }
+
+      // Debug: show the full command
+      logger.info('Launching: gemini ' + args.join(' '));
+      logger.blank();
+
+      await execa('gemini', args, {
+        cwd: projectPath,
+        stdio: 'inherit',
+      });
+    } else if (installType === 'local') {
+      // Launch with npx
+      const args = ['@google/gemini-cli'];
+
+      // Use the free flash model
+      args.push('--model', 'gemini-2.5-flash');
+
+      if (autoAccept) {
+        // Use --yolo for auto-accept mode
+        args.push('--yolo');
+
+        // Build allowed tools based on selected features
+        const needsSupabase = features.some(f =>
+          ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
+        );
+
+        // Whitelist development tools
+        const allowedTools = [
+          'bash',
+          'read',
+          'write',
+          'edit',
+          'glob',
+          'grep',
+          ...(needsSupabase ? ['supabase'] : []),
+        ];
+
+        // Add allowed tools as comma-separated string
+        args.push('--allowed-tools', allowedTools.join(','));
+      }
+
+      // Initial prompt as --prompt-interactive flag (must be quoted)
+      if (initialPrompt) {
+        args.push('--prompt-interactive', initialPrompt);
+      }
+
+      // Debug: show the full command
+      logger.info('Launching: npx ' + args.join(' '));
+      logger.blank();
+
+      await execa('npx', args, {
+        cwd: projectPath,
+        stdio: 'inherit',
+      });
+    }
+  } catch (error) {
+    logger.blank();
+    logger.error('Failed to launch Gemini CLI');
+    logger.info('You can launch it manually:');
+    logger.code(`cd ${projectPath}`);
+    if (autoAccept) {
+      logger.code('gemini --model gemini-2.5-flash --yolo --allowed-tools bash,read,write,edit');
+    } else {
+      logger.code('gemini --model gemini-2.5-flash');
+    }
+  }
+}

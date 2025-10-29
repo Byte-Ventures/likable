@@ -1,0 +1,28 @@
+# Source files
+src/
+tsconfig.json
+.eslintrc.json
+.prettierrc.json
+
+# Development
+node_modules/
+*.log
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (keep README.md and LICENSE.md)
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Tests
+test/
+*.test.ts
+*.spec.ts
+coverage/
