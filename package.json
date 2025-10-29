@@ -1,0 +1,65 @@
+{
+  "name": "@byteventures/likable",
+  "version": "0.1.1",
+  "description": "AI-powered React and Supabase app builder powered by Claude Code",
+  "main": "dist/index.js",
+  "bin": {
+    "likable": "dist/cli.js",
+    "likable-mcp-server": "dist/mcp-server.js",
+    "likable-postinstall": "dist/post-install.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "npm link",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node dist/post-install.js || true",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "react",
+    "supabase",
+    "ai",
+    "claude",
+    "scaffolding",
+    "cli",
+    "mcp"
+  ],
+  "author": "Theodor Storm, Byte Ventures IO AB",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Byte-Ventures/likable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Byte-Ventures/likable/issues"
+  },
+  "homepage": "https://github.com/Byte-Ventures/likable#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "commander": "^12.1.0",
+    "inquirer": "^10.2.2",
+    "chalk": "^5.3.0",
+    "ora": "^8.1.1",
+    "execa": "^9.5.2",
+    "fs-extra": "^11.2.0",
+    "open": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
