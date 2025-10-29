@@ -7,11 +7,13 @@ tsconfig.json
 # Development
 node_modules/
 *.log
+dev-server.log
 .env
 .env.local
 .DS_Store
 .vscode/
 .idea/
+.claude/
 
 # Git
 .git/
