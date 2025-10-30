@@ -37,17 +37,9 @@ export async function deployCommand(
       await deployToVercel(projectPath);
       break;
 
-    case 'netlify':
-      await deployToNetlify(projectPath);
-      break;
-
-    case 'cloudflare':
-      await deployToCloudflare(projectPath);
-      break;
-
     default:
       logger.failSpinner(`Unknown deployment target: ${target}`);
-      logger.info('Available targets: vercel, netlify, cloudflare');
+      logger.info('Available targets: vercel');
       return;
   }
 
@@ -69,16 +61,4 @@ async function deployToVercel(projectPath: string): Promise<void> {
     cwd: projectPath,
     stdio: 'inherit',
   });
-}
-
-async function deployToNetlify(projectPath: string): Promise<void> {
-  // TODO: Implement Netlify deployment
-  logger.info('Netlify deployment - coming soon!');
-  logger.info('For now, use: netlify deploy --prod');
-}
-
-async function deployToCloudflare(projectPath: string): Promise<void> {
-  // TODO: Implement Cloudflare Pages deployment
-  logger.info('Cloudflare Pages deployment - coming soon!');
-  logger.info('For now, use: wrangler pages publish dist');
 }
