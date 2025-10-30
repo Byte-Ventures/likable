@@ -47,7 +47,7 @@ export function generateAIInitialPrompt(
   config: ProjectConfig,
   port: number = 13337
 ): string {
-  return 'Read README.md and LIKABLE.md. First, create a simple specification covering: 1) What the user should be able to do (3-5 core features, describe from user perspective), 2) How it should look and feel (make it look lovable and fresh, modern and appealing). Keep it high-level - NO technical implementation details. Save to SPEC.md. Then start building.';
+  return 'Read README.md and LIKABLE.md. First, create a simple specification covering: 1) What the user should be able to do (3-5 core features, describe from user perspective), 2) How it should look and feel (make it look lovable and fresh, modern and appealing). Keep it high-level - NO technical implementation details. Save to SPEC.md. Then start building according to SPEC.md.';
 }
 
 /**
