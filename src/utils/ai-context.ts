@@ -113,6 +113,13 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 - SPEC.md describes what users should be able to do and how it should look/feel
 - NO technical details - just user perspective and style guidelines
 
+**Implementation Guidelines:**
+- **Keep it simple** - Don't over-engineer, use straightforward solutions
+- **Verify exports** - Always check that components/functions are properly exported and imported
+- **Test as you go** - After creating each component, verify it works before moving on
+- Check dev-server.log after every significant change to catch errors early
+- If something doesn't work, fix it immediately before adding more code
+
 **Development Workflow:**
 - The dev server is already running at http://localhost:${port}
 - **IMPORTANT:** Open the dev server in the browser NOW so the user can see the app as you build it. Use the 'open' command to launch the browser.
