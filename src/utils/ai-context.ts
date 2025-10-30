@@ -334,7 +334,9 @@ export async function writeLikableMd(
     const contextFile = aiType.toUpperCase() + '.md';
     const content = `IMPORTANT: Be verbose! Explain what you're doing at each step so the user understands your progress.
 
-The dev server is already running at http://localhost:${port}. You can open it in the browser to verify.
+The dev server is already running at http://localhost:${port}.
+
+IMPORTANT: Open the dev server in the browser NOW so the user can see the app as you build it. Use the 'open' command to launch the browser.
 
 IMPORTANT: The dev server logs are being written to dev-server.log in the project root. You should:
 - Check this log file periodically (every few minutes) for errors
