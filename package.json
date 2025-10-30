@@ -1,6 +1,6 @@
 {
   "name": "@byteventures/likable",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "AI-powered React and Supabase app builder - works with Gemini (free) or Claude Code",
   "main": "dist/index.js",
   "bin": {
