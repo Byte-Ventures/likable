@@ -14,7 +14,6 @@ import {
   installGemini,
   launchGeminiCode,
   generateProjectName,
-  generateProjectSpecification,
   AIInstallType,
 } from '../utils/ai-helper.js';
 import {
@@ -275,21 +274,10 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
 
     logger.success(`Project name: ${projectName}`);
 
-    // Generate project specification
-    logger.blank();
-    logger.info('Generating project specification...');
-    const specification = await generateProjectSpecification(
-      selectedAI,
-      description,
-      undefined
-    );
-    logger.success('Specification generated');
-
     // Build config with defaults
     config = {
       name: projectName,
       description,
-      specification,
       typescript: true,
       componentLibrary: 'shadcn',
       features: [], // No features by default (same as normal wizard)
@@ -309,27 +297,10 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     config = await promptProjectConfig();
     targetPath = path.resolve(process.cwd(), config.name);
 
-    // Generate project specification
-    logger.blank();
-    logger.info('Generating project specification...');
-    config.specification = await generateProjectSpecification(
-      selectedAI,
-      config.description,
-      config.userStory
-    );
-    logger.success('Specification generated');
-
     logger.blank();
     logger.section('📋 Step 4/7: Review & Confirm');
     console.log(chalk.white('  Project name:       ') + chalk.cyan(config.name));
     console.log(chalk.white('  Description:        ') + chalk.gray(config.description));
-
-    // Show brief specification preview (first 3 lines)
-    if (config.specification) {
-      const specPreview = config.specification.split('\n').slice(0, 3).join('\n  ');
-      console.log(chalk.white('  Specification:      ') + chalk.gray(specPreview + '...'));
-    }
-
     console.log(
       chalk.white('  Component library:  ') + chalk.cyan(config.componentLibrary)
     );

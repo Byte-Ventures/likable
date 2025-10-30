@@ -73,7 +73,7 @@ export async function generateProjectSpecification(
 
   try {
     const result = selectedAI === 'claude'
-      ? await execa('claude', ['--print'], { input: prompt, timeout: 45000 })
+      ? await execa('claude', ['--print'], { input: prompt, timeout: 30000 })
       : await execa('gemini', [prompt], { timeout: 45000 });
 
     const specification = result.stdout.trim();

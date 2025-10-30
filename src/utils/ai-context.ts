@@ -47,7 +47,7 @@ export function generateAIInitialPrompt(
   config: ProjectConfig,
   port: number = 13337
 ): string {
-  return 'Read README.md and LIKABLE.md to understand the project, then start implementing immediately based on the requirements.';
+  return 'Read README.md and LIKABLE.md. First, create a detailed technical specification covering: MVP features (3-5 core features), key user flows, UI/UX guidelines (ensure modern and stylish), and technical considerations. Save it to SPEC.md. Then start implementing based on the requirements.';
 }
 
 /**
@@ -88,7 +88,6 @@ export async function writeLikableMd(
     // Sanitize user input to prevent escape code issues in markdown files
     const sanitizedDescription = sanitizeForMarkdown(config.description);
     const sanitizedUserStory = config.userStory ? sanitizeForMarkdown(config.userStory) : '';
-    const sanitizedSpecification = config.specification ? sanitizeForMarkdown(config.specification) : '';
 
     const content = `# ${config.name} - Development Guide
 
@@ -96,7 +95,6 @@ export async function writeLikableMd(
 
 ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length > 0 ? `\n\n**Additional Requirements:** ${sanitizedUserStory}` : ''}
 
-${sanitizedSpecification ? `\n## Project Specification\n\n${sanitizedSpecification}\n` : ''}
 ## Development Environment
 
 - **Dev Server:** http://localhost:${port}
@@ -109,6 +107,10 @@ ${sanitizedSpecification ? `\n## Project Specification\n\n${sanitizedSpecificati
 - Be verbose! Explain what you're doing at each step so the user understands your progress
 - Throughout the build process, explain what you're creating and why
 - Keep the user informed of your progress
+
+**Specification:**
+- A detailed technical specification is in SPEC.md (created during initialization)
+- Refer to SPEC.md for MVP features, user flows, UI/UX guidelines, and technical considerations
 
 **Development Workflow:**
 - The dev server is already running at http://localhost:${port}
