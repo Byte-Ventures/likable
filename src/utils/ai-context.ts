@@ -2,6 +2,7 @@ import { ProjectConfig } from './prompts.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { logger } from './logger.js';
+import { sanitizeForMarkdown } from './sanitize.js';
 
 export type AIType = 'claude' | 'gemini';
 
@@ -84,11 +85,15 @@ export async function writeLikableMd(
   port: number = 13337
 ): Promise<void> {
   try {
+    // Sanitize user input to prevent escape code issues in markdown files
+    const sanitizedDescription = sanitizeForMarkdown(config.description);
+    const sanitizedUserStory = config.userStory ? sanitizeForMarkdown(config.userStory) : '';
+
     const content = `# ${config.name} - Development Guide
 
 ## Project Description
 
-${config.description}${config.userStory && config.userStory.trim().length > 0 ? `\n\n**Additional Requirements:** ${config.userStory}` : ''}
+${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length > 0 ? `\n\n**Additional Requirements:** ${sanitizedUserStory}` : ''}
 
 ## Development Environment
 

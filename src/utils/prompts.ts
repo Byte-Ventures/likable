@@ -1,6 +1,7 @@
 import inquirer from 'inquirer';
 import { existsSync } from 'fs';
 import path from 'path';
+import { sanitizeUserInput } from './sanitize.js';
 
 export interface ProjectConfig {
   name: string;
@@ -90,8 +91,12 @@ export async function promptProjectConfig(projectName?: string): Promise<Project
     },
   ]);
 
+  // Sanitize user input (defense in depth - also sanitized at usage points)
   return {
     ...answers,
+    name: sanitizeUserInput(answers.name),
+    description: sanitizeUserInput(answers.description),
+    userStory: answers.userStory ? sanitizeUserInput(answers.userStory) : '',
     typescript: true, // Always use TypeScript
   } as ProjectConfig;
 }

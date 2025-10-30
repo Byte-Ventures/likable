@@ -1,6 +1,7 @@
 import { execa } from 'execa';
 import { logger } from './logger.js';
 import { DEFAULT_DEV_PORT } from './constants.js';
+import { sanitizeForCLI } from './sanitize.js';
 
 export type AIInstallType = 'global' | 'local' | 'none';
 
@@ -23,7 +24,9 @@ export async function generateProjectName(
   selectedAI: 'claude' | 'gemini',
   description: string
 ): Promise<string[]> {
-  const prompt = `Generate 3 project directory names for: ${description}. Requirements: lowercase, a-z and dash only, 3-30 chars. Respond with one name per line, no other text.`;
+  // Sanitize user input to prevent escape code injection
+  const sanitizedDescription = sanitizeForCLI(description);
+  const prompt = `Generate 3 project directory names for: ${sanitizedDescription}. Requirements: lowercase, a-z and dash only, 3-30 chars. Respond with one name per line, no other text.`;
 
   try {
     const result = selectedAI === 'claude'
@@ -170,7 +173,8 @@ export async function launchClaudeCode(
 
       // Initial prompt must come last (positional argument)
       if (initialPrompt) {
-        args.push(initialPrompt);
+        // Sanitize prompt to prevent escape code injection
+        args.push(sanitizeForCLI(initialPrompt));
       }
 
       // Debug: show the full command
@@ -218,7 +222,8 @@ export async function launchClaudeCode(
 
       // Initial prompt must come last (positional argument)
       if (initialPrompt) {
-        args.push(initialPrompt);
+        // Sanitize prompt to prevent escape code injection
+        args.push(sanitizeForCLI(initialPrompt));
       }
 
       // Debug: show the full command
@@ -363,7 +368,8 @@ export async function launchGeminiCode(
 
       // Initial prompt as --prompt-interactive flag (must be quoted)
       if (initialPrompt) {
-        args.push('--prompt-interactive', initialPrompt);
+        // Sanitize prompt to prevent escape code injection
+        args.push('--prompt-interactive', sanitizeForCLI(initialPrompt));
       }
 
       // Debug: show the full command
@@ -407,7 +413,8 @@ export async function launchGeminiCode(
 
       // Initial prompt as --prompt-interactive flag (must be quoted)
       if (initialPrompt) {
-        args.push('--prompt-interactive', initialPrompt);
+        // Sanitize prompt to prevent escape code injection
+        args.push('--prompt-interactive', sanitizeForCLI(initialPrompt));
       }
 
       // Debug: show the full command
