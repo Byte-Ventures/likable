@@ -27,8 +27,8 @@ export async function generateProjectName(
 
   try {
     const result = selectedAI === 'claude'
-      ? await execa('claude', ['--print', prompt], { timeout: 30000, stdio: 'pipe' })
-      : await execa('gemini', ['--model', 'gemini-2.5-flash', '--prompt', prompt], { timeout: 30000, stdio: 'pipe' });
+      ? await execa('claude', ['--print'], { input: prompt, timeout: 30000 })
+      : await execa('gemini', ['--model', 'gemini-2.5-flash'], { input: prompt, timeout: 30000 });
 
     // Parse output: split by newlines, trim, validate
     const names = result.stdout
