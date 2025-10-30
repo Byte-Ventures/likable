@@ -107,7 +107,7 @@ async function continueWorkingWizard(): Promise<void> {
   // Launch AI with prompt to ask user what to do
   const initialPrompt = `The dev server is already running at http://localhost:${DEFAULT_DEV_PORT}.
 
-Ask the user what they would like to work on or what changes they want to make to the project.`;
+Read README.md and LIKABLE.md to understand the project context. Then ask the user what they would like to work on or what changes they want to make.`;
 
   logger.info(`Launching ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'}...`);
   logger.blank();
