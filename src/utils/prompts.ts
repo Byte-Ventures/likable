@@ -7,6 +7,7 @@ export interface ProjectConfig {
   name: string;
   description: string;
   userStory?: string;
+  specification?: string;
   features: string[];
   componentLibrary: string;
   typescript: boolean;

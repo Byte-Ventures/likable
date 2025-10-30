@@ -56,6 +56,54 @@ export async function generateProjectName(
 }
 
 /**
+ * Generate detailed project specification using AI
+ * Returns structured specification covering MVP requirements, user flows, and technical considerations
+ */
+export async function generateProjectSpecification(
+  selectedAI: 'claude' | 'gemini',
+  description: string,
+  userStory?: string
+): Promise<string> {
+  // Sanitize user input to prevent escape code injection
+  const sanitizedDescription = sanitizeForCLI(description);
+  const sanitizedUserStory = userStory ? sanitizeForCLI(userStory) : '';
+
+  const prompt = `Generate a detailed technical specification for this project:
+
+Description: ${sanitizedDescription}
+${sanitizedUserStory ? `Additional Requirements: ${sanitizedUserStory}` : ''}
+
+Create a structured specification including:
+1. MVP Core Features (3-5 essential features for initial release)
+2. Key User Flows (main user interactions and journeys)
+3. UI/UX Guidelines (ensure the product is stylish, modern, and appealing)
+4. Technical Considerations (architecture patterns, data model, key dependencies)
+
+Format as clear markdown with sections. Be concise but comprehensive. Focus on MVP scope.`;
+
+  try {
+    const result = selectedAI === 'claude'
+      ? await execa('claude', ['--print'], { input: prompt, timeout: 45000 })
+      : await execa('gemini', ['--model', 'gemini-2.5-flash'], { input: prompt, timeout: 45000 });
+
+    const specification = result.stdout.trim();
+
+    // Validate we got a reasonable specification (at least 100 chars)
+    if (specification.length > 100) {
+      return specification;
+    }
+  } catch (error) {
+    logger.warning('AI specification generation failed, using fallback');
+    if (error instanceof Error) {
+      logger.error(`Error: ${error.message}`);
+    }
+  }
+
+  // Fallback: return structured description
+  return `## Project Overview\n\n${description}\n\n${userStory ? `## Additional Requirements\n\n${userStory}\n\n` : ''}## Next Steps\n\nThe AI will help you build this project step by step.`;
+}
+
+/**
  * Check if Claude Code is installed globally
  */
 export async function checkClaudeCodeInstalled(): Promise<boolean> {

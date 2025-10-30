@@ -88,6 +88,7 @@ export async function writeLikableMd(
     // Sanitize user input to prevent escape code issues in markdown files
     const sanitizedDescription = sanitizeForMarkdown(config.description);
     const sanitizedUserStory = config.userStory ? sanitizeForMarkdown(config.userStory) : '';
+    const sanitizedSpecification = config.specification ? sanitizeForMarkdown(config.specification) : '';
 
     const content = `# ${config.name} - Development Guide
 
@@ -95,6 +96,7 @@ export async function writeLikableMd(
 
 ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length > 0 ? `\n\n**Additional Requirements:** ${sanitizedUserStory}` : ''}
 
+${sanitizedSpecification ? `\n## Project Specification\n\n${sanitizedSpecification}\n` : ''}
 ## Development Environment
 
 - **Dev Server:** http://localhost:${port}
