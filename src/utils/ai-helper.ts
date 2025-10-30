@@ -5,6 +5,54 @@ import { DEFAULT_DEV_PORT } from './constants.js';
 export type AIInstallType = 'global' | 'local' | 'none';
 
 /**
+ * Simple slugify function for project names
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+    .replace(/^-+|-+$/g, '') // Trim dashes from start/end
+    .slice(0, 30); // Limit to 30 chars
+}
+
+/**
+ * Generate project name suggestions using AI
+ * Returns array of 1-3 valid project names, or falls back to slugified description
+ */
+export async function generateProjectName(
+  selectedAI: 'claude' | 'gemini',
+  description: string
+): Promise<string[]> {
+  const prompt = `Generate 3 project directory names for: ${description}. Requirements: lowercase, a-z and dash only, 3-30 chars. Respond with one name per line, no other text.`;
+
+  try {
+    const result = selectedAI === 'claude'
+      ? await execa('claude', ['--print', prompt], { timeout: 30000, stdio: 'pipe' })
+      : await execa('gemini', ['--model', 'gemini-2.5-flash', '--prompt', prompt], { timeout: 30000, stdio: 'pipe' });
+
+    // Parse output: split by newlines, trim, validate
+    const names = result.stdout
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => /^[a-z-]{3,30}$/.test(line))
+      .slice(0, 3); // Take first 3 valid names
+
+    if (names.length > 0) {
+      return names;
+    }
+  } catch (error) {
+    logger.warning('AI name generation failed, using fallback');
+    if (error instanceof Error) {
+      logger.error(`Error: ${error.message}`);
+    }
+  }
+
+  // Fallback: slugify description
+  const fallbackName = slugify(description) || 'my-app';
+  return [fallbackName];
+}
+
+/**
  * Check if Claude Code is installed globally
  */
 export async function checkClaudeCodeInstalled(): Promise<boolean> {

@@ -13,6 +13,7 @@ import {
   checkGeminiInstalled,
   installGemini,
   launchGeminiCode,
+  generateProjectName,
   AIInstallType,
 } from '../utils/ai-helper.js';
 import {
@@ -22,7 +23,7 @@ import {
 } from '../utils/ai-context.js';
 import { DEFAULT_DEV_PORT } from '../utils/constants.js';
 
-export async function wizardCommand(): Promise<void> {
+export async function wizardCommand(quickStart: boolean = false): Promise<void> {
   // Welcome banner
   console.log();
   logger.header('🚀 Welcome to Likable!');
@@ -43,7 +44,7 @@ export async function wizardCommand(): Promise<void> {
     await continueWorkingWizard();
   } else {
     // No LIKABLE.md found - create new project
-    await createProjectWizard();
+    await createProjectWizard(quickStart);
   }
 }
 
@@ -119,7 +120,7 @@ Read README.md and LIKABLE.md to understand the project context. Then ask the us
   }
 }
 
-async function createProjectWizard(): Promise<void> {
+async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   logger.blank();
   logger.section('📋 Step 1/7: AI Assistant Detection');
 
@@ -213,36 +214,116 @@ async function createProjectWizard(): Promise<void> {
   logger.blank();
   logger.section('📋 Step 3/7: Project Configuration');
 
-  // Get project configuration
-  const config = await promptProjectConfig();
-  const targetPath = path.resolve(process.cwd(), config.name);
+  let config: ProjectConfig;
+  let targetPath: string;
 
-  logger.blank();
-  logger.section('📋 Step 4/7: Review & Confirm');
-  console.log(chalk.white('  Project name:       ') + chalk.cyan(config.name));
-  console.log(chalk.white('  Description:        ') + chalk.gray(config.description));
-  console.log(
-    chalk.white('  Component library:  ') + chalk.cyan(config.componentLibrary)
-  );
-  console.log(
-    chalk.white('  Features:           ') +
-      chalk.cyan(config.features.length > 0 ? config.features.join(', ') : 'None')
-  );
-  console.log(chalk.white('  TypeScript:         ') + chalk.cyan('Yes (always enabled)'));
-  logger.blank();
+  if (quickStart) {
+    // Quick start mode: only ask for description, generate name with AI
+    const { description } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'description',
+        message: 'What do you want to build?',
+        default: 'Flappy Alpaca - a Flappy Bird style game where you control an alpaca flying through obstacles. Tap or press space to flap and avoid hitting pipes.',
+      },
+    ]);
 
-  const { confirmed } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'confirmed',
-      message: 'Create project with these settings?',
-      default: true,
-    },
-  ]);
+    logger.blank();
+    logger.info('Generating project name...');
 
-  if (!confirmed) {
-    logger.info('Setup cancelled');
-    return;
+    // Generate project names using AI
+    const suggestedNames = await generateProjectName(selectedAI, description);
+
+    // Find first available directory name
+    let projectName = suggestedNames[0];
+    let foundAvailable = false;
+
+    for (const name of suggestedNames) {
+      const testPath = path.resolve(process.cwd(), name);
+      try {
+        await fs.access(testPath);
+        // Directory exists, try next
+      } catch {
+        // Directory doesn't exist, use this name
+        projectName = name;
+        foundAvailable = true;
+        break;
+      }
+    }
+
+    // If all suggested names exist, append numeric suffix
+    if (!foundAvailable) {
+      const baseName = suggestedNames[0];
+      let suffix = 1;
+      const MAX_ATTEMPTS = 1000; // Safety limit
+      while (suffix < MAX_ATTEMPTS) {
+        const testName = `${baseName}-${suffix}`;
+        const testPath = path.resolve(process.cwd(), testName);
+        try {
+          await fs.access(testPath);
+          suffix++;
+        } catch {
+          projectName = testName;
+          break;
+        }
+      }
+      if (suffix >= MAX_ATTEMPTS) {
+        throw new Error(`Could not find available directory name after ${MAX_ATTEMPTS} attempts`);
+      }
+    }
+
+    logger.success(`Project name: ${projectName}`);
+
+    // Build config with defaults
+    config = {
+      name: projectName,
+      description,
+      typescript: true,
+      componentLibrary: 'shadcn',
+      features: [], // No features by default (same as normal wizard)
+      userStory: '',
+    };
+
+    targetPath = path.resolve(process.cwd(), config.name);
+
+    // Show configuration (no confirmation needed in quick start)
+    logger.blank();
+    logger.info('Using recommended defaults:');
+    console.log(chalk.white('  Component library:  ') + chalk.cyan('shadcn'));
+    console.log(chalk.white('  Permission mode:    ') + chalk.cyan('YOLO'));
+    logger.blank();
+  } else {
+    // Normal mode: full configuration flow
+    config = await promptProjectConfig();
+    targetPath = path.resolve(process.cwd(), config.name);
+
+    logger.blank();
+    logger.section('📋 Step 4/7: Review & Confirm');
+    console.log(chalk.white('  Project name:       ') + chalk.cyan(config.name));
+    console.log(chalk.white('  Description:        ') + chalk.gray(config.description));
+    console.log(
+      chalk.white('  Component library:  ') + chalk.cyan(config.componentLibrary)
+    );
+    if (config.features.length > 0) {
+      console.log(
+        chalk.white('  Features:           ') + chalk.cyan(config.features.join(', '))
+      );
+    }
+    logger.blank();
+
+    const { confirmed } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'confirmed',
+        message: 'Create project with these settings?',
+        default: true,
+      },
+    ]);
+
+    if (!confirmed) {
+      logger.info('Setup cancelled');
+      return;
+    }
   }
 
   logger.blank();
@@ -278,14 +359,20 @@ async function createProjectWizard(): Promise<void> {
   let serviceManager: ServiceManager | undefined;
 
   if (hasDocker && hasSupabase && needsSupabase) {
-    const { startSupabase } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'startSupabase',
-        message: 'Start Supabase now?',
-        default: true,
-      },
-    ]);
+    let startSupabase = quickStart; // Quick start always starts Supabase
+
+    if (!quickStart) {
+      // Normal mode: ask user
+      const response = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'startSupabase',
+          message: 'Start Supabase now?',
+          default: true,
+        },
+      ]);
+      startSupabase = response.startSupabase;
+    }
 
     if (startSupabase) {
       serviceManager = new ServiceManager(targetPath);
@@ -343,27 +430,35 @@ async function createProjectWizard(): Promise<void> {
 
   const projectPath = path.resolve(process.cwd(), config.name);
 
-  // Ask about permission mode (applies to both AIs)
-  const { permissionMode } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'permissionMode',
-      message: 'How do you want the AI to work?',
-      choices: [
-        {
-          name: '🚀 YOLO mode - The true vibe coding experience (AI builds freely)',
-          value: 'yolo',
-        },
-        {
-          name: '🔍 Review mode - Confirm each file change',
-          value: 'review',
-        },
-      ],
-      default: 'yolo',
-    },
-  ]);
+  // Determine permission mode
+  let autoAccept: boolean;
 
-  const autoAccept = permissionMode === 'yolo';
+  if (quickStart) {
+    // Quick start always uses YOLO mode
+    autoAccept = true;
+  } else {
+    // Ask about permission mode (applies to both AIs)
+    const { permissionMode } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'permissionMode',
+        message: 'How do you want the AI to work?',
+        choices: [
+          {
+            name: '🚀 YOLO mode - The true vibe coding experience (AI builds freely)',
+            value: 'yolo',
+          },
+          {
+            name: '🔍 Review mode - Confirm each file change',
+            value: 'review',
+          },
+        ],
+        default: 'yolo',
+      },
+    ]);
+
+    autoAccept = permissionMode === 'yolo';
+  }
 
   // Write context files for BOTH AIs (so user can switch later)
   await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept);

@@ -16,10 +16,19 @@ const __dirname = dirname(__filename);
 const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 const version = packageJson.version;
 
+// Check for --quick-start flag
+const hasQuickStart = process.argv.includes('--quick-start');
+
 // Check if running in interactive mode (no args provided)
 const isInteractive = process.argv.length === 2;
 
-if (isInteractive) {
+if (hasQuickStart) {
+  // Run quick start wizard
+  wizardCommand(true).catch((error) => {
+    console.error(chalk.red('Error:'), error.message);
+    process.exit(1);
+  });
+} else if (isInteractive) {
   // Run wizard directly
   wizardCommand().catch((error) => {
     console.error(chalk.red('Error:'), error.message);
@@ -32,7 +41,8 @@ if (isInteractive) {
 program
   .name('likable')
   .description('AI-powered React and Supabase app builder powered by Claude Code')
-  .version(version);
+  .version(version)
+  .option('--quick-start', 'Quick start mode - only ask what to build, use AI-generated name and recommended defaults');
 
 // likable init [project-name]
 program
