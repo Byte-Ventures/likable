@@ -47,7 +47,7 @@ export function generateAIInitialPrompt(
   config: ProjectConfig,
   port: number = 13337
 ): string {
-  return 'Read README.md and LIKABLE.md. First, create a detailed technical specification covering: MVP features (3-5 core features), key user flows, UI/UX guidelines (ensure modern and stylish), and technical considerations. Save it to SPEC.md. Then start implementing based on the requirements.';
+  return 'Read README.md and LIKABLE.md. First, create a simple specification covering: 1) What the user should be able to do (3-5 core features, describe from user perspective), 2) How it should look and feel (make it look lovable and fresh, modern and appealing). Keep it high-level - NO technical implementation details. Save to SPEC.md. Then start building.';
 }
 
 /**
@@ -109,8 +109,9 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 - Keep the user informed of your progress
 
 **Specification:**
-- A detailed technical specification is in SPEC.md (created during initialization)
-- Refer to SPEC.md for MVP features, user flows, UI/UX guidelines, and technical considerations
+- A simple user-focused specification is in SPEC.md (created during initialization)
+- SPEC.md describes what users should be able to do and how it should look/feel
+- NO technical details - just user perspective and style guidelines
 
 **Development Workflow:**
 - The dev server is already running at http://localhost:${port}
