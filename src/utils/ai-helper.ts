@@ -31,7 +31,7 @@ export async function generateProjectName(
   try {
     const result = selectedAI === 'claude'
       ? await execa('claude', ['--print'], { input: prompt, timeout: 30000 })
-      : await execa('gemini', ['--model', 'gemini-2.5-flash'], { input: prompt, timeout: 30000 });
+      : await execa('gemini', [prompt], { timeout: 30000 });
 
     // Parse output: split by newlines, trim, validate
     const names = result.stdout
@@ -68,23 +68,13 @@ export async function generateProjectSpecification(
   const sanitizedDescription = sanitizeForCLI(description);
   const sanitizedUserStory = userStory ? sanitizeForCLI(userStory) : '';
 
-  const prompt = `Generate a detailed technical specification for this project:
-
-Description: ${sanitizedDescription}
-${sanitizedUserStory ? `Additional Requirements: ${sanitizedUserStory}` : ''}
-
-Create a structured specification including:
-1. MVP Core Features (3-5 essential features for initial release)
-2. Key User Flows (main user interactions and journeys)
-3. UI/UX Guidelines (ensure the product is stylish, modern, and appealing)
-4. Technical Considerations (architecture patterns, data model, key dependencies)
-
-Format as clear markdown with sections. Be concise but comprehensive. Focus on MVP scope.`;
+  // Build prompt with no newlines for Gemini compatibility
+  const prompt = `Generate a detailed technical specification for this project: Description: ${sanitizedDescription}${sanitizedUserStory ? ` Additional Requirements: ${sanitizedUserStory}` : ''} Create a structured specification including: 1. MVP Core Features (3-5 essential features for initial release) 2. Key User Flows (main user interactions and journeys) 3. UI/UX Guidelines (ensure the product is stylish, modern, and appealing) 4. Technical Considerations (architecture patterns, data model, key dependencies) Format as clear markdown with sections. Be concise but comprehensive. Focus on MVP scope.`;
 
   try {
     const result = selectedAI === 'claude'
       ? await execa('claude', ['--print'], { input: prompt, timeout: 45000 })
-      : await execa('gemini', ['--model', 'gemini-2.5-flash'], { input: prompt, timeout: 45000 });
+      : await execa('gemini', [prompt], { timeout: 45000 });
 
     const specification = result.stdout.trim();
 
