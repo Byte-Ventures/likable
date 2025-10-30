@@ -114,11 +114,11 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 - NO technical details - just user perspective and style guidelines
 
 **Implementation Guidelines:**
-- **Keep it simple** - Don't over-engineer, use straightforward solutions
 - **Verify exports** - Always check that components/functions are properly exported and imported
 - **Test as you go** - After creating each component, verify it works before moving on
 - Check dev-server.log after every significant change to catch errors early
 - If something doesn't work, fix it immediately before adding more code
+- **Complete the MVP** - All features listed in SPEC.md must be fully implemented before the MVP is considered done
 
 **Development Workflow:**
 - The dev server is already running at http://localhost:${port}
