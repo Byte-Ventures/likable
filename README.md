@@ -37,7 +37,7 @@ Likable is a framework inspired by Lovable.dev that helps you rapidly build Reac
 
 ```bash
 # 1. Install Likable
-npm install -g likable
+npm install -g @byteventures/likable
 
 # 2. Run the interactive wizard
 likable
