@@ -1,5 +1,6 @@
 import inquirer from 'inquirer';
 import path from 'path';
+import { promises as fs } from 'fs';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { ProjectConfig, promptProjectConfig } from '../utils/prompts.js';
@@ -27,30 +28,94 @@ export async function wizardCommand(): Promise<void> {
   logger.header('🚀 Welcome to Likable!');
   console.log(chalk.gray('  AI-powered React + Supabase app builder\n'));
 
-  // Main menu
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: 'What would you like to do?',
-      choices: [
-        { name: '✨ Create a new project', value: 'create' },
-        { name: '📂 Work in current directory', value: 'current' },
-        { name: '🚀 Deploy a project', value: 'deploy' },
-        { name: '❓ Get help', value: 'help' },
-      ],
-    },
-  ]);
+  // Auto-detect: Check if LIKABLE.md exists in current directory
+  const likableMdPath = path.join(process.cwd(), 'LIKABLE.md');
+  let likableMdExists = false;
+  try {
+    await fs.access(likableMdPath);
+    likableMdExists = true;
+  } catch {
+    likableMdExists = false;
+  }
 
-  switch (action) {
-    case 'create':
-      await createProjectWizard();
-      break;
-    case 'help':
-      showHelp();
-      break;
-    default:
-      logger.info('Feature coming soon!');
+  if (likableMdExists) {
+    // Continue working on existing project
+    await continueWorkingWizard();
+  } else {
+    // No LIKABLE.md found - create new project
+    await createProjectWizard();
+  }
+}
+
+async function continueWorkingWizard(): Promise<void> {
+  logger.info('Existing Likable project detected!');
+  logger.blank();
+
+  // Detect which AI CLI is installed
+  const geminiInstalled = await checkGeminiInstalled();
+  const claudeInstalled = await checkClaudeCodeInstalled();
+
+  let selectedAI: 'gemini' | 'claude';
+
+  if (!geminiInstalled && !claudeInstalled) {
+    logger.warning('No AI CLI detected.');
+    logger.info('Install Gemini CLI (free): npm install -g @google/gemini-cli');
+    logger.info('Install Claude Code: npm install -g @anthropic-ai/claude-code');
+    return;
+  } else if (claudeInstalled && !geminiInstalled) {
+    logger.success('Claude Code detected.');
+    selectedAI = 'claude';
+  } else if (geminiInstalled && !claudeInstalled) {
+    logger.success('Gemini CLI detected.');
+    selectedAI = 'gemini';
+  } else {
+    // Both installed - ask user
+    logger.info('Both Claude Code and Gemini CLI detected!');
+    logger.blank();
+    const response = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'aiChoice',
+        message: 'Which AI assistant would you like to use?',
+        choices: [
+          { name: '🆓 Gemini (Free)', value: 'gemini' },
+          { name: '💎 Claude Code', value: 'claude' },
+        ],
+        default: 'gemini',
+      },
+    ]);
+    selectedAI = response.aiChoice;
+  }
+
+  logger.blank();
+  logger.info('Starting dev server...');
+
+  // Start dev server in background
+  const projectPath = process.cwd();
+  const serviceManager = new ServiceManager(projectPath);
+
+  try {
+    await serviceManager.startDevServer(true);
+    logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
+    logger.blank();
+  } catch (error) {
+    logger.warning('Failed to start dev server');
+    logger.info('You can start it manually: npm run dev');
+    logger.blank();
+  }
+
+  // Launch AI with prompt to ask user what to do
+  const initialPrompt = `The dev server is already running at http://localhost:${DEFAULT_DEV_PORT}.
+
+Ask the user what they would like to work on or what changes they want to make to the project.`;
+
+  logger.info(`Launching ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'}...`);
+  logger.blank();
+
+  if (selectedAI === 'gemini') {
+    await launchGeminiCode(projectPath, 'global', initialPrompt, true, []);
+  } else {
+    await launchClaudeCode(projectPath, 'global', initialPrompt, true, []);
   }
 }
 
