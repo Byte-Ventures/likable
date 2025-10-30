@@ -2,11 +2,19 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { initCommand } from './commands/init.js';
 import { addFeatureCommand } from './commands/add-feature.js';
 import { deployCommand } from './commands/deploy.js';
 import { chatCommand } from './commands/chat.js';
 import { wizardCommand } from './commands/wizard.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+const version = packageJson.version;
 
 // Check if running in interactive mode (no args provided)
 const isInteractive = process.argv.length === 2;
@@ -24,7 +32,7 @@ if (isInteractive) {
 program
   .name('likable')
   .description('AI-powered React and Supabase app builder powered by Claude Code')
-  .version('0.1.0');
+  .version(version);
 
 // likable init [project-name]
 program
