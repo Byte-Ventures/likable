@@ -12,21 +12,21 @@ const __dirname = dirname(__filename);
 const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 const version = packageJson.version;
 
-// Check for --quick-start flag
-const hasQuickStart = process.argv.includes('--quick-start');
+// Check for --wizard flag
+const hasWizard = process.argv.includes('--wizard');
 
 // Check if running in interactive mode (no args provided)
 const isInteractive = process.argv.length === 2;
 
-if (hasQuickStart) {
-  // Run quick start wizard
-  wizardCommand(true).catch((error) => {
+if (hasWizard) {
+  // Run full wizard with all prompts
+  wizardCommand(false).catch((error) => {
     console.error(chalk.red('Error:'), error.message);
     process.exit(1);
   });
 } else if (isInteractive) {
-  // Run wizard directly
-  wizardCommand().catch((error) => {
+  // Run quick-start mode by default (minimal prompts, AI-generated name, recommended defaults)
+  wizardCommand(true).catch((error) => {
     console.error(chalk.red('Error:'), error.message);
     process.exit(1);
   });
@@ -38,7 +38,7 @@ program
   .name('likable')
   .description('AI-powered React and Supabase app builder powered by Claude Code')
   .version(version)
-  .option('--quick-start', 'Quick start mode - only ask what to build, use AI-generated name and recommended defaults');
+  .option('--wizard', 'Full wizard mode - interactive setup with all configuration options');
 
 // Handle unknown commands
 program.on('command:*', () => {
