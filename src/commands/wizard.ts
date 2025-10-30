@@ -56,7 +56,55 @@ export async function wizardCommand(): Promise<void> {
 
 async function createProjectWizard(): Promise<void> {
   logger.blank();
-  logger.section('📋 Step 1/7: Prerequisites Check');
+  logger.section('📋 Step 1/7: AI Assistant Detection');
+
+  // Check what AI CLIs are installed
+  const geminiInstalled = await checkGeminiInstalled();
+  const claudeInstalled = await checkClaudeCodeInstalled();
+
+  let selectedAI: 'gemini' | 'claude';
+
+  // Determine which AI to use based on what's installed
+  if (!geminiInstalled && !claudeInstalled) {
+    // Nothing installed - will auto-install Gemini (free)
+    logger.info('No AI CLI detected. Will install Gemini CLI (free) later.');
+    selectedAI = 'gemini';
+  } else if (claudeInstalled && !geminiInstalled) {
+    // Only Claude installed - use Claude
+    logger.success('Claude Code detected. Will use Claude Code for AI assistance.');
+    selectedAI = 'claude';
+  } else if (geminiInstalled && !claudeInstalled) {
+    // Only Gemini installed - use Gemini
+    logger.success('Gemini CLI detected. Will use Gemini for AI assistance.');
+    selectedAI = 'gemini';
+  } else {
+    // Both installed - ask user which one to use
+    logger.info('Both Claude Code and Gemini CLI detected!');
+    logger.blank();
+    const response = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'aiChoice',
+        message: 'Which AI assistant would you like to use?',
+        choices: [
+          {
+            name: '🆓 Gemini (Free, 60 req/min)',
+            value: 'gemini',
+          },
+          {
+            name: '💎 Claude Code ($20/month, unlimited)',
+            value: 'claude',
+          },
+        ],
+        default: 'gemini',
+      },
+    ]);
+    selectedAI = response.aiChoice;
+    logger.success(`Will use ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'} for AI assistance.`);
+  }
+
+  logger.blank();
+  logger.section('📋 Step 2/7: Prerequisites Check');
 
   // Check Node.js
   logger.success('Node.js found');
@@ -98,14 +146,14 @@ async function createProjectWizard(): Promise<void> {
   }
 
   logger.blank();
-  logger.section('📋 Step 2/7: Project Configuration');
+  logger.section('📋 Step 3/7: Project Configuration');
 
   // Get project configuration
   const config = await promptProjectConfig();
   const targetPath = path.resolve(process.cwd(), config.name);
 
   logger.blank();
-  logger.section('📋 Step 3/7: Review & Confirm');
+  logger.section('📋 Step 4/7: Review & Confirm');
   console.log(chalk.white('  Project name:       ') + chalk.cyan(config.name));
   console.log(chalk.white('  Description:        ') + chalk.gray(config.description));
   console.log(
@@ -133,7 +181,7 @@ async function createProjectWizard(): Promise<void> {
   }
 
   logger.blank();
-  logger.section('📋 Step 4/7: Creating Project');
+  logger.section('📋 Step 5/7: Creating Project');
 
   // Check if user selected any Supabase features
   const needsSupabase =
@@ -160,7 +208,7 @@ async function createProjectWizard(): Promise<void> {
   }
 
   logger.blank();
-  logger.section('📋 Step 5/7: Start Supabase');
+  logger.section('📋 Step 6/7: Start Supabase');
 
   let serviceManager: ServiceManager | undefined;
 
@@ -204,7 +252,7 @@ async function createProjectWizard(): Promise<void> {
   }
 
   logger.blank();
-  logger.section('📋 Step 6/7: Start Dev Server');
+  logger.section('📋 Step 7/7: Start Dev Server');
 
   // Initialize service manager if not already done
   if (!serviceManager) {
@@ -223,87 +271,17 @@ async function createProjectWizard(): Promise<void> {
     logger.blank();
   }
 
-  // Launch AI assistant
-  await showAIAssistantSetup(config);
-}
-
-async function showAIAssistantSetup(config: ProjectConfig): Promise<boolean> {
-  logger.section('📋 Step 7/7: AI-Powered Development');
-  console.log(chalk.green.bold('  ✨ Setup complete! Your project is ready!'));
+  // Launch AI assistant based on selection from Step 1
+  logger.blank();
+  console.log(chalk.green.bold('  ✨ Setup complete! Launching AI assistant...'));
   logger.blank();
 
   const projectPath = path.resolve(process.cwd(), config.name);
 
-  // Check what's installed
-  const geminiInstalled = await checkGeminiInstalled();
-  const claudeInstalled = await checkClaudeCodeInstalled();
-
-  // Show AI assistant choice
-  const { aiChoice } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'aiChoice',
-      message: 'Choose your AI coding assistant:',
-      choices: [
-        {
-          name: `🆓 Gemini (Free, 60 req/min) ${geminiInstalled ? '✓ Installed' : ''}`,
-          value: 'gemini',
-        },
-        {
-          name: `💎 Claude Code ($20/month, unlimited) ${claudeInstalled ? '✓ Installed' : ''}`,
-          value: 'claude',
-        },
-        { name: "📝 Skip - I'll code manually", value: 'skip' },
-        { name: '❓ What are these?', value: 'info' },
-      ],
-      default: geminiInstalled ? 'gemini' : 'gemini', // Always recommend Gemini (free!)
-    },
-  ]);
-
-  if (aiChoice === 'info') {
-    logger.blank();
-    logger.info('AI Coding Assistants:');
-    logger.blank();
-    logger.info('Gemini (Free):');
-    logger.info('  • Free to use with Google account');
-    logger.info('  • 60 requests/minute, 1000/day');
-    logger.info('  • YOLO mode support');
-    logger.info('  • Great for solo developers & learners');
-    logger.blank();
-    logger.info('Claude Code ($20/month):');
-    logger.info('  • Requires Claude Pro subscription');
-    logger.info('  • Unlimited requests');
-    logger.info('  • Premium AI model');
-    logger.info('  • Best for professional development');
-    logger.blank();
-
-    const { proceedAfterInfo } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'proceedAfterInfo',
-        message: 'Which would you like to use?',
-        choices: [
-          { name: '🆓 Gemini (Free)', value: 'gemini' },
-          { name: '💎 Claude Code ($20/month)', value: 'claude' },
-          { name: "📝 Skip - I'll code manually", value: 'skip' },
-        ],
-        default: 'gemini',
-      },
-    ]);
-
-    if (proceedAfterInfo === 'skip') {
-      return false;
-    } else if (proceedAfterInfo === 'gemini') {
-      return await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config);
-    } else {
-      return await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config);
-    }
-  } else if (aiChoice === 'skip') {
-    return false;
-  } else if (aiChoice === 'gemini') {
-    return await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config);
+  if (selectedAI === 'gemini') {
+    await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config);
   } else {
-    return await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config);
+    await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config);
   }
 }
 
