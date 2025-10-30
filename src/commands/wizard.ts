@@ -338,15 +338,52 @@ async function createProjectWizard(): Promise<void> {
 
   // Launch AI assistant based on selection from Step 1
   logger.blank();
-  console.log(chalk.green.bold('  ✨ Setup complete! Launching AI assistant...'));
+  console.log(chalk.green.bold('  ✨ Setup complete! Preparing AI assistant...'));
   logger.blank();
 
   const projectPath = path.resolve(process.cwd(), config.name);
 
+  // Ask about permission mode (applies to both AIs)
+  const { permissionMode } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'permissionMode',
+      message: 'How do you want the AI to work?',
+      choices: [
+        {
+          name: '🚀 YOLO mode - The true vibe coding experience (AI builds freely)',
+          value: 'yolo',
+        },
+        {
+          name: '🔍 Review mode - Confirm each file change',
+          value: 'review',
+        },
+      ],
+      default: 'yolo',
+    },
+  ]);
+
+  const autoAccept = permissionMode === 'yolo';
+
+  // Write context files for BOTH AIs (so user can switch later)
+  await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
+  await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
+  await writeLikableMd(selectedAI, projectPath, config, DEFAULT_DEV_PORT);
+
+  logger.success('Created CLAUDE.md and GEMINI.md - you can switch AIs anytime!');
+  logger.blank();
+
+  // Generate initial prompt for selected AI
+  const initialPrompt = generateAIInitialPrompt(selectedAI, config, DEFAULT_DEV_PORT);
+
+  // Launch selected AI
+  logger.info(`Launching ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'}...`);
+  logger.blank();
+
   if (selectedAI === 'gemini') {
-    await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config);
+    await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt);
   } else {
-    await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config);
+    await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt);
   }
 }
 
@@ -363,7 +400,9 @@ function showClaudeCodeInfo(): void {
 async function handleClaudeCodeSetup(
   action: string,
   projectPath: string,
-  config: ProjectConfig
+  config: ProjectConfig,
+  autoAccept: boolean,
+  initialPrompt: string
 ): Promise<boolean> {
   let installType: AIInstallType = 'none';
 
@@ -396,41 +435,8 @@ async function handleClaudeCodeSetup(
     }
   }
 
-  // Write CLAUDE.md with project context
   if (installType !== 'none') {
-    // Ask about permission mode first
-    const { permissionMode } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'permissionMode',
-        message: 'How do you want Claude Code to work?',
-        choices: [
-          {
-            name: '🚀 YOLO mode - The true vibe coding experience (Claude builds freely)',
-            value: 'yolo',
-          },
-          {
-            name: '🔍 Review mode - Confirm each file change',
-            value: 'review',
-          },
-        ],
-        default: 'yolo',
-      },
-    ]);
-
-    const autoAccept = permissionMode === 'yolo';
-
-    // Write CLAUDE.md with permission mode context
-    await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
-
-    // Write LIKABLE.md with build instructions
-    await writeLikableMd('claude', projectPath, config, DEFAULT_DEV_PORT);
-    logger.blank();
-
-    // Generate initial prompt
-    const initialPrompt = generateAIInitialPrompt('claude', config, DEFAULT_DEV_PORT);
-
-    // Launch Claude Code with context
+    // Launch Claude Code with provided params
     await launchClaudeCode(projectPath, installType, initialPrompt, autoAccept, config.features);
     return true;
   }
@@ -441,7 +447,9 @@ async function handleClaudeCodeSetup(
 async function handleGeminiSetup(
   action: string,
   projectPath: string,
-  config: ProjectConfig
+  config: ProjectConfig,
+  autoAccept: boolean,
+  initialPrompt: string
 ): Promise<boolean> {
   let installType: AIInstallType = 'none';
 
@@ -474,41 +482,8 @@ async function handleGeminiSetup(
     }
   }
 
-  // Write GEMINI.md with project context
   if (installType !== 'none') {
-    // Ask about permission mode first
-    const { permissionMode } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'permissionMode',
-        message: 'How do you want Gemini to work?',
-        choices: [
-          {
-            name: '🚀 YOLO mode - The true vibe coding experience (Gemini builds freely)',
-            value: 'yolo',
-          },
-          {
-            name: '🔍 Review mode - Confirm each file change',
-            value: 'review',
-          },
-        ],
-        default: 'yolo',
-      },
-    ]);
-
-    const autoAccept = permissionMode === 'yolo';
-
-    // Write GEMINI.md with permission mode context
-    await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
-
-    // Write LIKABLE.md with build instructions
-    await writeLikableMd('gemini', projectPath, config, DEFAULT_DEV_PORT);
-    logger.blank();
-
-    // Generate initial prompt
-    const initialPrompt = generateAIInitialPrompt('gemini', config, DEFAULT_DEV_PORT);
-
-    // Launch Gemini CLI with context
+    // Launch Gemini CLI with provided params
     await launchGeminiCode(projectPath, installType, initialPrompt, autoAccept, config.features);
     return true;
   }
