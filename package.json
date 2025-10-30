@@ -4,8 +4,7 @@
   "description": "AI-powered React and Supabase app builder - works with Gemini (free) or Claude Code",
   "main": "dist/index.js",
   "bin": {
-    "likable": "dist/cli.js",
-    "likable-postinstall": "dist/post-install.js"
+    "likable": "dist/cli.js"
   },
   "type": "module",
   "scripts": {
@@ -13,7 +12,6 @@
     "postbuild": "npm link",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "postinstall": "node dist/post-install.js || true",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "echo \"Error: no test specified\" && exit 1"

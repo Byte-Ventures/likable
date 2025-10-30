@@ -9,3 +9,8 @@ coverage/
 .vscode/
 .idea/
 .claude/
+
+# Test projects created during development
+flappy-*
+test-*
+my-app/

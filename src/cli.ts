@@ -6,11 +6,15 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { wizardCommand } from './commands/wizard.js';
+import { showWelcomeIfNeeded } from './utils/first-run.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 const version = packageJson.version;
+
+// Show welcome message on first run
+showWelcomeIfNeeded();
 
 // Check for --wizard flag
 const hasWizard = process.argv.includes('--wizard');
