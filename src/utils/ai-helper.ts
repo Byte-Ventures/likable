@@ -153,30 +153,41 @@ export async function installClaudeCode(
 
 /**
  * Generate a creative "surprise" project description using AI
- * Uses random number as seed for variety
+ * Generates 10 diverse ideas and picks one randomly
  * Returns a short, specific description of a likable React app idea
  */
 export async function generateSurpriseDescription(
   selectedAI: 'claude' | 'gemini'
 ): Promise<string> {
   const randomSeed = Math.floor(Math.random() * 1000000);
-  const prompt = `Using ${randomSeed} as a random seed, create a short description (1-2 sentences) of a React web app that does something likable and useful. A new twist on a successful app or game. Be specific about what it does. Respond with ONLY the description, no extra text.`;
+  const prompt = `Generate 10 diverse React web app ideas. Vary the categories: productivity tools, social features, games, data visualization, health/fitness, education, entertainment, utilities, creative tools, and lifestyle apps. Each idea should be 1-2 sentences describing what the app does and what makes it interesting. Number each idea 1-10. Seed: ${randomSeed}`;
 
   try {
     const result = selectedAI === 'claude'
       ? await execa('claude', ['--print'], { input: prompt, timeout: 45000 })
       : await execa('gemini', [prompt], { timeout: 45000 });
 
-    const description = result.stdout.trim();
+    const output = result.stdout.trim();
 
-    // Validate we got a reasonable description (20-400 chars for 1-2 sentences)
-    if (description.length >= 20 && description.length <= 400) {
-      return description;
+    // Parse numbered list (handles various formats: "1.", "1)", "1 -", etc.)
+    const ideas = output
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => /^\d+[\.):\-\s]/.test(line)) // Lines starting with number
+      .map(line => line.replace(/^\d+[\.):\-\s]+/, '').trim()) // Remove number prefix
+      .filter(idea => idea.length >= 20 && idea.length <= 400); // Validate length
+
+    if (ideas.length > 0) {
+      // Pick a random idea from the list
+      const randomIndex = Math.floor(Math.random() * ideas.length);
+      const selectedIdea = ideas[randomIndex];
+      logger.info(`Selected idea ${randomIndex + 1} of ${ideas.length} generated ideas`);
+      return selectedIdea;
     }
 
     // Log validation failure for debugging
-    logger.warning(`AI returned description of ${description.length} chars (expected 20-400)`);
-    logger.info(`Output: ${description.substring(0, 100)}...`);
+    logger.warning(`Could not parse ideas from AI output`);
+    logger.info(`Output: ${output.substring(0, 200)}...`);
   } catch (error) {
     logger.warning('AI surprise generation failed, using fallback');
     if (error instanceof Error) {
