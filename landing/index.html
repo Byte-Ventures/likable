@@ -103,6 +103,21 @@
             margin: 0 auto 3rem;
         }
 
+        /* Video Container */
+        .video-container {
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .video-container iframe {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border: none;
+        }
+
         /* Install Box */
         .install-box {
             background: var(--bg-card);
@@ -267,6 +282,10 @@
                 <p class="description">
                     Free, open-source React + Supabase app builder with AI assistance.
                 </p>
+
+                <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/W2IhyKM_T54" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                </div>
 
                 <div class="install-box">
                     <h3>Get Started</h3>
