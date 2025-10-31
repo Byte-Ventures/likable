@@ -166,13 +166,15 @@ CRITICAL: You MUST get user approval before building anything!
    - Repeat until approved
 
 **Step 3: Build UI-FIRST (only after SPEC approval)**
+IMPORTANT: Once SPEC is approved, DO NOT pause to ask the user for permission or if you should continue. Just build the entire application autonomously according to the approved specification. Work through all phases systematically until the MVP is complete.
+
 Follow these phases:
 1. Create the visual layout with typed dummy data (NO API calls yet)
 2. Make it visually complete with loading/error/empty states
 3. Validate exports and run \`npx tsc --noEmit\` to check for errors
 4. Wire up real business logic and data incrementally
 
-Start with Phase 1 - the UI skeleton.
+Start with Phase 1 - the UI skeleton and continue through all phases without stopping.
 
 CRITICAL: After EVERY file you create or modify, you MUST run \`npx tsc --noEmit\` and fix any errors before continuing. No exceptions. If you skip this, your code WILL break.`;
 }
@@ -271,6 +273,8 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 **Development Phases (Follow This Order!):**
 
 **CRITICAL: Build UI-first, then add functionality. Do NOT implement business logic before UI.**
+
+**IMPORTANT: Once SPEC.md is approved, work through ALL phases autonomously without pausing to ask for permission or if you should continue. Complete the entire MVP according to the approved specification.**
 
 1. **Phase 1 - UI Skeleton:** Create layout and component structure
    - Build all React components with static/typed dummy data
