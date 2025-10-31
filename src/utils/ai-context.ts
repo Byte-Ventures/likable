@@ -120,7 +120,8 @@ ${autoAccept ? '**YOLO MODE ACTIVE** - You can run npm, npx, supabase, git, and 
 export function generateAIInitialPrompt(
   aiType: AIType,
   config: ProjectConfig,
-  port: number = 13337
+  port: number = 13337,
+  hasSupabase: boolean = true
 ): string {
   const devServerCmd = aiType === 'claude'
     ? `Start the dev server with \`npm run dev\`.`
@@ -130,14 +131,26 @@ export function generateAIInitialPrompt(
 
 Read README.md and LIKABLE.md, then follow this workflow:
 
-**Step 1: Create SPEC.md**
+${hasSupabase ? `**Step 1: Start Supabase (if needed)**
+Check if .env.local contains "your-anon-key-here" as the VITE_SUPABASE_ANON_KEY value.
+
+If it does (placeholder detected):
+1. Run \`npx supabase start\` in the background
+2. Wait for it to complete (this may take 2-3 minutes on first run)
+3. Run \`npx supabase status\` to get the credentials
+4. Update .env.local with the real API URL and anon key from the output
+5. Confirm Supabase is running
+
+If .env.local already has real credentials, skip this step.
+
+**Step 2: Create SPEC.md**` : `**Step 1: Create SPEC.md**`}
 Create a simple specification covering:
 1. What the user should be able to do (3-5 core features, from user perspective)
 2. How it should look and feel (lovable, fresh, modern, appealing)
 
 Keep it high-level - NO technical implementation details. Save to SPEC.md.
 
-**Step 2: Get User Approval for SPEC.md**
+${hasSupabase ? `**Step 3: Get User Approval for SPEC.md**` : `**Step 2: Get User Approval for SPEC.md**`}
 CRITICAL: You MUST get user approval before building anything!
 
 1. Create \`src/pages/SpecReview.tsx\`:
@@ -161,18 +174,18 @@ CRITICAL: You MUST get user approval before building anything!
    - Display in terminal: "✎ Or provide feedback for changes"
 
 4. Wait for user input:
-   - If user types "approved": Remove SpecReview component, restore App.tsx to default, proceed to Step 3
+   - If user types "approved": Remove SpecReview component, restore App.tsx to default, ${hasSupabase ? 'proceed to Step 4' : 'proceed to Step 3'}
    - If user provides feedback: Update SPEC.md based on feedback (Vite HMR will auto-refresh the browser), ask again
    - Repeat until approved
 
-**Step 3: Build UI-FIRST (only after SPEC approval)**
+${hasSupabase ? `**Step 4: Build UI-FIRST (only after SPEC approval)**` : `**Step 3: Build UI-FIRST (only after SPEC approval)**`}
 IMPORTANT: Once SPEC is approved, DO NOT pause to ask the user for permission or if you should continue. Just build the entire application autonomously according to the approved specification. Work through all phases systematically until the MVP is complete.
 
 Follow these phases:
-1. Create the visual layout with typed dummy data (NO API calls yet)
+1. Create the visual layout with typed dummy data (${hasSupabase ? 'NO Supabase calls yet' : 'NO API calls yet'})
 2. Make it visually complete with loading/error/empty states
 3. Validate exports and run \`npx tsc --noEmit\` to check for errors
-4. Wire up real business logic and data incrementally
+4. Wire up real ${hasSupabase ? 'Supabase integration (Supabase is running with credentials in .env.local)' : 'business logic and data integration'}
 
 Start with Phase 1 - the UI skeleton and continue through all phases without stopping.
 

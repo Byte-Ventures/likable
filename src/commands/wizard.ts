@@ -306,7 +306,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
         type: 'input',
         name: 'description',
         message: 'What do you want to build?',
-        default: 'Flappy Space Alpaca - a Flappy Bird inspired game in space with an alpaca character',
+        default: 'Surprise me!',
       },
     ]);
 
@@ -564,7 +564,8 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   logger.blank();
 
   // Generate initial prompt for selected AI
-  const initialPrompt = generateAIInitialPrompt(selectedAI, config, DEFAULT_DEV_PORT);
+  const hasSupabase = hasDocker && needsSupabase;
+  const initialPrompt = generateAIInitialPrompt(selectedAI, config, DEFAULT_DEV_PORT, hasSupabase);
 
   // Launch selected AI
   logger.info(`Launching ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'}...`);
