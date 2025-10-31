@@ -558,7 +558,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   // Write context files for BOTH AIs (so user can switch later)
   await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
   await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
-  await writeLikableMd(selectedAI, projectPath, config, DEFAULT_DEV_PORT);
+  await writeLikableMd(selectedAI, projectPath, config, DEFAULT_DEV_PORT, hasGit);
 
   logger.success('Created CLAUDE.md and GEMINI.md - you can switch AIs anytime!');
   logger.blank();

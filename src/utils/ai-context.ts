@@ -78,11 +78,14 @@ After EVERY file change:
 - \`npx tsc --noEmit\` - TypeScript validation
 
 After completing a component/feature:
-- \`npm run build\` - Verify production build works
+- \`npm run build\` - Verify production build works${hasGit ? `
+- \`git add <files>\` - Stage your changes
+- \`git commit -m "feat: description"\` - Commit with conventional format` : ''}
 
 **CRITICAL RULES:**
 - Run TypeScript validation after EVERY file you create or modify
-- Run build check after completing each component or feature
+- Run build check after completing each component or feature${hasGit ? `
+- Commit your work after each completed feature/component` : ''}
 - Watch your dev server terminal for compilation errors
 - If you see errors, STOP and fix them immediately
 
@@ -94,11 +97,14 @@ After EVERY file change:
 2. \`tail -20 dev-server.log\` - Check compilation
 
 After completing a component/feature:
-3. \`npm run build\` - Verify production build works
+3. \`npm run build\` - Verify production build works${hasGit ? `
+4. \`git add <files>\` - Stage your changes
+5. \`git commit -m "feat: description"\` - Commit with conventional format` : ''}
 
 **CRITICAL RULES:**
 - Run TypeScript validation after EVERY file you create or modify
-- Run build check after completing each component or feature
+- Run build check after completing each component or feature${hasGit ? `
+- Commit your work after each completed feature/component` : ''}
 - If you see errors, STOP and fix them immediately
 
 **Expected Warnings (can be ignored):**
@@ -204,7 +210,8 @@ export async function writeLikableMd(
   aiType: AIType,
   projectPath: string,
   config: ProjectConfig,
-  port: number = 13337
+  port: number = 13337,
+  hasGit: boolean = false
 ): Promise<void> {
   try {
     // Sanitize user input to prevent escape code issues in markdown files
@@ -320,10 +327,12 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 2. Run \`npx tsc --noEmit\`
 3. If errors: Fix them immediately
 4. If no errors: Continue to next file
-5. After completing a component: Run \`npm run build\`
-6. Repeat
+5. After completing a component: Run \`npm run build\`${hasGit ? `
+6. If build succeeds: \`git add <files>\` and \`git commit -m "feat: description"\`
+7. Repeat` : `
+6. Repeat`}
 
-Never skip step 2. Never skip step 5 after components.`;
+Never skip step 2. Never skip step 5 after components.${hasGit ? ` Never skip step 6 after completing features.` : ''}`;
 
     const filePath = path.join(projectPath, 'LIKABLE.md');
     await fs.writeFile(filePath, content, 'utf-8');
