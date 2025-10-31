@@ -20,29 +20,43 @@ export class ServiceManager {
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
+    logger.info(`ServiceManager initialized for: ${projectPath}`);
   }
 
-  async startSupabase(): Promise<{ url: string; anonKey: string }> {
-    logger.startSpinner('Checking Supabase status...');
+  async startSupabase(skipExistingCheck: boolean = false): Promise<{ url: string; anonKey: string }> {
+    if (!skipExistingCheck) {
+      logger.startSpinner('Checking Supabase status...');
 
-    try {
-      // Check if Supabase is already running
       try {
-        const { stdout } = await execa('npx', ['supabase', 'status'], {
+        // Check if Supabase is already running
+        logger.info(`Running: npx supabase status --output json (cwd: ${this.projectPath})`);
+        const { stdout } = await execa('npx', ['supabase', 'status', '--output', 'json'], {
           cwd: this.projectPath,
           stdio: 'pipe',
         });
 
-        if (stdout.includes('API URL')) {
+        logger.info(`Supabase status output: ${stdout}`);
+        const status = JSON.parse(stdout);
+
+        // Only consider it "running" if we have API credentials, not just DB_URL
+        if (status.API_URL || status['API URL'] || status.api_url) {
           logger.succeedSpinner('Supabase is already running');
-          return this.extractSupabaseCredentials(stdout);
+          logger.info(`Found API URL in status output for ${this.projectPath}`);
+          return this.extractSupabaseCredentialsFromJSON(stdout);
+        } else {
+          logger.info('Supabase status returned incomplete data (no API_URL), will start fresh');
         }
-      } catch {
+      } catch (error) {
+        logger.info(`Supabase status check failed: ${error instanceof Error ? error.message : String(error)}`);
         // Not running, need to start
       }
 
-      // Stop spinner before showing supabase output
-      logger.succeedSpinner('Starting Supabase...');
+      logger.succeedSpinner('Supabase status checked');
+    }
+
+    logger.startSpinner('Starting Supabase...');
+
+    try {
       logger.blank();
       logger.info('This may take a minute on first run (downloading Docker images)...');
       logger.blank();
@@ -50,25 +64,38 @@ export class ServiceManager {
       // Clean up deprecated config keys before starting
       await cleanupSupabaseConfig(this.projectPath);
 
-      // Start Supabase
+      // Start Supabase (without --output flag as it doesn't produce valid JSON)
+      logger.info(`Running: npx supabase start (cwd: ${this.projectPath})`);
       await execa('npx', ['supabase', 'start'], {
         cwd: this.projectPath,
-        stdio: 'inherit', // Show output directly to user
+        stdio: 'pipe', // Suppress output during start
       });
 
       logger.blank();
 
-      // Get status to extract credentials
-      const { stdout } = await execa('npx', ['supabase', 'status'], {
+      // Now get the status in JSON format (this actually works unlike start --output json)
+      logger.info(`Running: npx supabase status --output json (cwd: ${this.projectPath})`);
+      const { stdout } = await execa('npx', ['supabase', 'status', '--output', 'json'], {
         cwd: this.projectPath,
         stdio: 'pipe',
       });
 
-      logger.success('Supabase started successfully');
-      return this.extractSupabaseCredentials(stdout);
+      logger.info(`Supabase status output: ${stdout}`);
+      logger.succeedSpinner('Supabase started successfully');
+      return this.extractSupabaseCredentialsFromJSON(stdout);
     } catch (error: any) {
+      logger.failSpinner('Failed to start Supabase');
       logger.blank();
-      logger.error('Failed to start Supabase');
+
+      // Show the error output to user since we're using stdio: 'pipe'
+      if (error.stdout) {
+        logger.info('Supabase output:');
+        console.log(error.stdout);
+      }
+      if (error.stderr) {
+        logger.error('Supabase error output:');
+        console.error(error.stderr);
+      }
 
       // Parse error message for specific issues
       const errorMessage = error.stderr || error.message || '';
@@ -250,10 +277,56 @@ export class ServiceManager {
     }
   }
 
+  private extractSupabaseCredentialsFromJSON(jsonOutput: string): { url: string; anonKey: string } {
+    try {
+      const status = JSON.parse(jsonOutput);
+      logger.info(`JSON keys present: ${Object.keys(status).join(', ')}`);
+
+      // Try various field name patterns that Supabase CLI might use
+      const url = status.API_URL || status['API URL'] || status.api_url || 'http://127.0.0.1:54321';
+      const anonKey =
+        status.PUBLISHABLE_KEY ||
+        status['Publishable key'] ||
+        status.publishable_key ||
+        status.ANON_KEY ||
+        status['anon key'] ||
+        status.anon_key ||
+        'your-anon-key-here';
+
+      logger.info(`Extracted URL: ${url}`);
+      if (anonKey === 'your-anon-key-here') {
+        logger.warning('Could not find PUBLISHABLE_KEY or ANON_KEY in JSON output');
+        logger.info(`Available keys: ${Object.keys(status).join(', ')}`);
+      } else {
+        logger.info(`Extracted anon key: ${anonKey.substring(0, 15)}...${anonKey.substring(anonKey.length - 5)}`);
+      }
+
+      return { url, anonKey };
+    } catch (error) {
+      // JSON parsing failed, fall back to regex extraction
+      logger.warning('Failed to parse JSON output, trying regex fallback');
+      logger.error(`JSON parse error: ${error instanceof Error ? error.message : String(error)}`);
+      logger.info(`Raw output: ${jsonOutput.substring(0, 200)}...`);
+      return this.extractSupabaseCredentials(jsonOutput);
+    }
+  }
+
   private extractSupabaseCredentials(statusOutput: string): { url: string; anonKey: string } {
-    const urlMatch = statusOutput.match(/API URL: (http:\/\/[^\s]+)/);
+    const urlMatch = statusOutput.match(/API URL:\s*(http:\/\/[^\s]+)/);
     // Supabase CLI changed "anon key" to "Publishable key" in newer versions
-    const keyMatch = statusOutput.match(/(?:anon key|Publishable key): ([^\s]+)/i);
+    // Handle various whitespace and capitalization patterns
+    const keyMatch = statusOutput.match(/(?:anon\s*key|Publishable\s*key)\s*:\s*([^\s]+)/i);
+
+    if (!keyMatch) {
+      // Fallback: try to find JWT-like token (eyJ...) or sb_publishable_... format
+      const tokenMatch = statusOutput.match(/\b((?:eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)|(?:sb_publishable_[A-Za-z0-9_-]+))/);
+      if (tokenMatch) {
+        return {
+          url: urlMatch ? urlMatch[1] : 'http://127.0.0.1:54321',
+          anonKey: tokenMatch[1],
+        };
+      }
+    }
 
     return {
       url: urlMatch ? urlMatch[1] : 'http://127.0.0.1:54321',

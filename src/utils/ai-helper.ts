@@ -153,26 +153,30 @@ export async function installClaudeCode(
 
 /**
  * Generate a creative "surprise" project description using AI
- * Uses timestamp as random seed for variety
+ * Uses random number as seed for variety
  * Returns a short, specific description of a likable React app idea
  */
 export async function generateSurpriseDescription(
   selectedAI: 'claude' | 'gemini'
 ): Promise<string> {
-  const timestamp = Date.now();
-  const prompt = `Using ${timestamp} as a random seed, create a short description (1-2 sentences) of a React web app that does something likable, fun, and creative. Be specific about what it does. Examples: "A mood tracker that suggests music based on your emotions", "A recipe suggester that uses ingredients you already have". Respond with ONLY the description, no extra text.`;
+  const randomSeed = Math.floor(Math.random() * 1000000);
+  const prompt = `Using ${randomSeed} as a random seed, create a short description (1-2 sentences) of a React web app that does something likable and useful. A new twist on a successful app or game. Be specific about what it does. Respond with ONLY the description, no extra text.`;
 
   try {
     const result = selectedAI === 'claude'
-      ? await execa('claude', ['--print'], { input: prompt, timeout: 30000 })
-      : await execa('gemini', [prompt], { timeout: 30000 });
+      ? await execa('claude', ['--print'], { input: prompt, timeout: 45000 })
+      : await execa('gemini', [prompt], { timeout: 45000 });
 
     const description = result.stdout.trim();
 
-    // Validate we got a reasonable description (20-200 chars)
-    if (description.length >= 20 && description.length <= 200) {
+    // Validate we got a reasonable description (20-400 chars for 1-2 sentences)
+    if (description.length >= 20 && description.length <= 400) {
       return description;
     }
+
+    // Log validation failure for debugging
+    logger.warning(`AI returned description of ${description.length} chars (expected 20-400)`);
+    logger.info(`Output: ${description.substring(0, 100)}...`);
   } catch (error) {
     logger.warning('AI surprise generation failed, using fallback');
     if (error instanceof Error) {
@@ -181,7 +185,7 @@ export async function generateSurpriseDescription(
   }
 
   // Fallback: Return a simple default
-  return 'A React app for tracking and organizing your favorite things';
+  return 'Flappy Space Alpaca';
 }
 
 /**

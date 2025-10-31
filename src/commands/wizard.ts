@@ -490,7 +490,8 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     serviceManager = new ServiceManager(targetPath);
 
     try {
-      const credentials = await serviceManager.startSupabase();
+      // Skip existing check - this is a brand new project
+      const credentials = await serviceManager.startSupabase(true);
       await serviceManager.updateEnvFile(credentials);
 
       logger.blank();
