@@ -4,7 +4,7 @@ import { execa } from 'execa';
 import { logger } from './logger.js';
 import type { ProjectConfig } from './prompts.js';
 import { DEFAULT_DEV_PORT } from './constants.js';
-import { allocateSupabasePorts, updateSupabaseConfig, updateEnvWithPorts, type SupabasePortConfig } from './portManager.js';
+import { allocateSupabasePorts, allocateDevPort, updateSupabaseConfig, cleanupSupabaseConfig, updateEnvWithPorts, type SupabasePortConfig } from './portManager.js';
 
 export interface ScaffoldOptions {
   config: ProjectConfig;
@@ -14,8 +14,13 @@ export interface ScaffoldOptions {
   hasGit?: boolean;
 }
 
-export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
+export async function scaffoldProject(options: ScaffoldOptions): Promise<number> {
   const { config, targetPath, skipInstall, skipSupabase, hasGit } = options;
+
+  // Allocate dev server port
+  logger.startSpinner('Allocating dev server port');
+  const devPort = await allocateDevPort();
+  logger.succeedSpinner(`Dev server will use port ${devPort}`);
 
   // Create project directory
   logger.startSpinner(`Creating project directory: ${config.name}`);
@@ -141,8 +146,8 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
     await setupTailwind(targetPath);
   }
 
-  // Create Vite config with custom port
-  await createViteConfig(targetPath, DEFAULT_DEV_PORT);
+  // Create Vite config with allocated port
+  await createViteConfig(targetPath, devPort);
 
   // Create .env.local file with correct Supabase URL
   if (supabasePorts) {
@@ -167,6 +172,8 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
     await createGitignore(targetPath);
     await initGitRepository(targetPath);
   }
+
+  return devPort;
 }
 
 async function setupSupabase(projectPath: string): Promise<SupabasePortConfig> {
@@ -184,6 +191,9 @@ async function setupSupabase(projectPath: string): Promise<SupabasePortConfig> {
     throw error;
   }
 
+  // Clean up deprecated config keys
+  await cleanupSupabaseConfig(projectPath);
+
   // Allocate ports for Supabase services
   logger.startSpinner('Checking port availability');
   const ports = await allocateSupabasePorts();
@@ -198,8 +208,8 @@ async function setupSupabase(projectPath: string): Promise<SupabasePortConfig> {
     logger.succeedSpinner('Using default ports');
   }
 
-  // Start local Supabase (optional - user can do this later)
-  logger.info('To start local Supabase, run: cd ' + path.basename(projectPath) + ' && npx supabase start');
+  // Supabase will be started automatically by the wizard
+  logger.info('To restart Supabase later, run: cd ' + path.basename(projectPath) + ' && npx supabase start');
 
   return ports;
 }

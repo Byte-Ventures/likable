@@ -5,6 +5,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import inquirer from 'inquirer';
 import { DEFAULT_DEV_PORT } from './constants.js';
+import { cleanupSupabaseConfig } from './portManager.js';
 
 export interface ServiceStatus {
   running: boolean;
@@ -27,7 +28,7 @@ export class ServiceManager {
     try {
       // Check if Supabase is already running
       try {
-        const { stdout } = await execa('supabase', ['status'], {
+        const { stdout } = await execa('npx', ['supabase', 'status'], {
           cwd: this.projectPath,
           stdio: 'pipe',
         });
@@ -46,8 +47,11 @@ export class ServiceManager {
       logger.info('This may take a minute on first run (downloading Docker images)...');
       logger.blank();
 
+      // Clean up deprecated config keys before starting
+      await cleanupSupabaseConfig(this.projectPath);
+
       // Start Supabase
-      await execa('supabase', ['start'], {
+      await execa('npx', ['supabase', 'start'], {
         cwd: this.projectPath,
         stdio: 'inherit', // Show output directly to user
       });
@@ -55,7 +59,7 @@ export class ServiceManager {
       logger.blank();
 
       // Get status to extract credentials
-      const { stdout } = await execa('supabase', ['status'], {
+      const { stdout } = await execa('npx', ['supabase', 'status'], {
         cwd: this.projectPath,
         stdio: 'pipe',
       });
@@ -107,7 +111,8 @@ export class ServiceManager {
         if (action === 'stop') {
           try {
             logger.startSpinner('Stopping conflicting Supabase project...');
-            await execa('supabase', ['stop', '--no-backup'], {
+            await execa('npx', ['supabase', 'stop', '--no-backup'], {
+              cwd: this.projectPath,
               stdio: 'pipe',
             });
             logger.succeedSpinner('Stopped conflicting project');
@@ -133,11 +138,11 @@ export class ServiceManager {
     }
   }
 
-  async startDevServer(background: boolean = false): Promise<void> {
+  async startDevServer(background: boolean = false, port: number = DEFAULT_DEV_PORT): Promise<void> {
     logger.info('Starting development server...');
 
     try {
-      this.devServerProcess = execa('npm', ['run', 'dev', '--', '--port', DEFAULT_DEV_PORT.toString()], {
+      this.devServerProcess = execa('npm', ['run', 'dev', '--', '--port', port.toString()], {
         cwd: this.projectPath,
         stdio: background ? 'pipe' : 'inherit', // Use 'pipe' to capture errors in background
         detached: background, // Detach if running in background
@@ -191,7 +196,7 @@ export class ServiceManager {
       // Wait a moment for server to start
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      logger.success(`Development server started at http://localhost:${DEFAULT_DEV_PORT}`);
+      logger.success(`Development server started at http://localhost:${port}`);
     } catch (error) {
       logger.error('Failed to start development server');
       throw error;
@@ -247,7 +252,8 @@ export class ServiceManager {
 
   private extractSupabaseCredentials(statusOutput: string): { url: string; anonKey: string } {
     const urlMatch = statusOutput.match(/API URL: (http:\/\/[^\s]+)/);
-    const keyMatch = statusOutput.match(/anon key: ([^\s]+)/);
+    // Supabase CLI changed "anon key" to "Publishable key" in newer versions
+    const keyMatch = statusOutput.match(/(?:anon key|Publishable key): ([^\s]+)/i);
 
     return {
       url: urlMatch ? urlMatch[1] : 'http://127.0.0.1:54321',

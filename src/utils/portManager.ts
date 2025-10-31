@@ -128,6 +128,58 @@ export async function allocateSupabasePorts(): Promise<SupabasePortConfig> {
 }
 
 /**
+ * Allocate an available port for the dev server
+ * Tries random ports between minPort and maxPort
+ * Returns an available port or 13337 as fallback
+ */
+export async function allocateDevPort(
+  minPort: number = 13337,
+  maxPort: number = 65535
+): Promise<number> {
+  const maxAttempts = 50;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate random port in range
+    const port = Math.floor(Math.random() * (maxPort - minPort + 1)) + minPort;
+
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+
+  // Fallback to default if all random attempts fail
+  logger.warning('Could not find random port, using default 13337');
+  return 13337;
+}
+
+/**
+ * Remove deprecated configuration keys from Supabase config.toml
+ * @param projectPath - Absolute path to the project root directory
+ */
+export async function cleanupSupabaseConfig(projectPath: string): Promise<void> {
+  const configPath = path.join(projectPath, 'supabase', 'config.toml');
+
+  try {
+    // Read existing config.toml
+    let content = await fs.readFile(configPath, 'utf-8');
+
+    // Remove deprecated email_optional key from auth.external[apple] section
+    // This key is no longer supported in newer Supabase versions
+    content = content.replace(
+      /(\[auth\.external\.apple\][^\[]*?)email_optional\s*=\s*[^\n]+\n/s,
+      '$1'
+    );
+
+    await fs.writeFile(configPath, content, 'utf-8');
+  } catch (error) {
+    // Silently fail if config doesn't exist yet
+    if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
+      logger.warning('Could not clean up supabase/config.toml');
+    }
+  }
+}
+
+/**
  * Update Supabase config.toml with custom ports
  */
 export async function updateSupabaseConfig(

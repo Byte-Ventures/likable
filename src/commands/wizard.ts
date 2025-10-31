@@ -14,6 +14,7 @@ import {
   installGemini,
   launchGeminiCode,
   generateProjectName,
+  generateSurpriseDescription,
   AIInstallType,
 } from '../utils/ai-helper.js';
 import {
@@ -22,6 +23,27 @@ import {
   writeLikableMd
 } from '../utils/ai-context.js';
 import { DEFAULT_DEV_PORT } from '../utils/constants.js';
+
+/**
+ * Detect dev server port from vite.config.ts
+ * Returns the configured port or DEFAULT_DEV_PORT if not found
+ */
+async function detectDevPort(projectPath: string): Promise<number> {
+  try {
+    const viteConfigPath = path.join(projectPath, 'vite.config.ts');
+    const viteConfigContent = await fs.readFile(viteConfigPath, 'utf-8');
+
+    // Match: port: 12345
+    const portMatch = viteConfigContent.match(/port:\s*(\d+)/);
+    if (portMatch) {
+      return parseInt(portMatch[1], 10);
+    }
+  } catch (error) {
+    // File doesn't exist or couldn't be read
+  }
+
+  return DEFAULT_DEV_PORT;
+}
 
 export async function wizardCommand(quickStart: boolean = false): Promise<void> {
   // Welcome banner
@@ -124,13 +146,20 @@ async function continueWorkingWizard(): Promise<void> {
   // Detect project features for proper tool whitelisting
   const features = await detectProjectFeatures(projectPath);
 
+  // Detect the configured dev server port
+  const devPort = await detectDevPort(projectPath);
+
   if (selectedAI === 'gemini') {
     logger.info('Starting dev server...');
     const serviceManager = new ServiceManager(projectPath);
 
+    // Clean up any deprecated Supabase config keys
+    const { cleanupSupabaseConfig } = await import('../utils/portManager.js');
+    await cleanupSupabaseConfig(projectPath);
+
     try {
-      await serviceManager.startDevServer(true);
-      logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
+      await serviceManager.startDevServer(true, devPort);
+      logger.success(`Dev server running at http://localhost:${devPort}`);
       logger.blank();
     } catch (error) {
       logger.warning('Failed to start dev server');
@@ -142,7 +171,7 @@ async function continueWorkingWizard(): Promise<void> {
   // Launch AI with prompt to ask user what to do
   const initialPrompt = selectedAI === 'claude'
     ? `Start the dev server with \`npm run dev\`. Then read README.md and LIKABLE.md to understand the project context. After that, ask the user what they would like to work on or what changes they want to make.`
-    : `The dev server is already running at http://localhost:${DEFAULT_DEV_PORT}.
+    : `The dev server is already running at http://localhost:${devPort}.
 
 Read README.md and LIKABLE.md to understand the project context. Then ask the user what they would like to work on or what changes they want to make.`;
 
@@ -150,9 +179,9 @@ Read README.md and LIKABLE.md to understand the project context. Then ask the us
   logger.blank();
 
   if (selectedAI === 'gemini') {
-    await launchGeminiCode(projectPath, 'global', initialPrompt, true, features);
+    await launchGeminiCode(projectPath, 'global', initialPrompt, true, features, devPort);
   } else {
-    await launchClaudeCode(projectPath, 'global', initialPrompt, true, features);
+    await launchClaudeCode(projectPath, 'global', initialPrompt, true, features, devPort);
   }
 }
 
@@ -301,7 +330,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
 
   if (quickStart) {
     // Quick start mode: only ask for description, generate name with AI
-    const { description } = await inquirer.prompt([
+    let { description } = await inquirer.prompt([
       {
         type: 'input',
         name: 'description',
@@ -309,6 +338,14 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
         default: 'Surprise me!',
       },
     ]);
+
+    // Generate creative description if user chose "Surprise me!"
+    if (description === 'Surprise me!') {
+      logger.blank();
+      logger.info('🎲 Generating a surprise project idea...');
+      description = await generateSurpriseDescription(selectedAI);
+      logger.success(`How about: ${description}`);
+    }
 
     logger.blank();
     logger.info('Generating project name...');
@@ -426,8 +463,9 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     config.features.includes('realtime');
 
   // Scaffold the project
+  let devPort: number;
   try {
-    await scaffoldProject({
+    devPort = await scaffoldProject({
       config,
       targetPath,
       skipInstall: false,
@@ -448,46 +486,24 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   let serviceManager: ServiceManager | undefined;
 
   if (hasDocker && needsSupabase) {
-    let startSupabase = quickStart; // Quick start always starts Supabase
+    // Always start Supabase to provide a fully configured environment
+    serviceManager = new ServiceManager(targetPath);
 
-    if (!quickStart) {
-      // Normal mode: ask user
-      const response = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'startSupabase',
-          message: 'Start Supabase now?',
-          default: true,
-        },
-      ]);
-      startSupabase = response.startSupabase;
-    }
+    try {
+      const credentials = await serviceManager.startSupabase();
+      await serviceManager.updateEnvFile(credentials);
 
-    if (startSupabase) {
-      serviceManager = new ServiceManager(targetPath);
-
-      try {
-        const credentials = await serviceManager.startSupabase();
-        await serviceManager.updateEnvFile(credentials);
-
-        logger.blank();
-        logger.info('Supabase credentials:');
-        logger.code(`API URL:  ${credentials.url}`);
-        logger.code(`Anon key: ${credentials.anonKey.substring(0, 20)}...`);
-        logger.blank();
-      } catch (error) {
-        logger.blank();
-        logger.warning('Supabase failed to start');
-        logger.info('💡 To start Supabase manually:');
-        logger.code(`cd ${config.name}`);
-        logger.code('supabase start');
-        logger.blank();
-      }
-    } else {
       logger.blank();
-      logger.info('💡 To start Supabase later:');
+      logger.info('Supabase credentials:');
+      logger.code(`API URL:  ${credentials.url}`);
+      logger.code(`Anon key: ${credentials.anonKey.substring(0, 20)}...`);
+      logger.blank();
+    } catch (error) {
+      logger.blank();
+      logger.warning('Supabase failed to start');
+      logger.info('💡 To start Supabase manually:');
       logger.code(`cd ${config.name}`);
-      logger.code('supabase start');
+      logger.code('npx supabase start');
       logger.blank();
     }
   }
@@ -503,8 +519,8 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     }
 
     try {
-      await serviceManager.startDevServer(true); // true = background mode
-      logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
+      await serviceManager.startDevServer(true, devPort); // true = background mode
+      logger.success(`Dev server running at http://localhost:${devPort}`);
       logger.blank();
     } catch (error) {
       logger.warning('Failed to start dev server');
@@ -556,25 +572,25 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   }
 
   // Write context files for BOTH AIs (so user can switch later)
-  await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
-  await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
-  await writeLikableMd(selectedAI, projectPath, config, DEFAULT_DEV_PORT, hasGit);
+  await writeAIContextMd('gemini', projectPath, config, devPort, autoAccept, hasGit);
+  await writeAIContextMd('claude', projectPath, config, devPort, autoAccept, hasGit);
+  await writeLikableMd(selectedAI, projectPath, config, devPort, hasGit);
 
   logger.success('Created CLAUDE.md and GEMINI.md - you can switch AIs anytime!');
   logger.blank();
 
   // Generate initial prompt for selected AI
   const hasSupabase = hasDocker && needsSupabase;
-  const initialPrompt = generateAIInitialPrompt(selectedAI, config, DEFAULT_DEV_PORT, hasSupabase);
+  const initialPrompt = generateAIInitialPrompt(selectedAI, config, devPort, hasSupabase);
 
   // Launch selected AI
   logger.info(`Launching ${selectedAI === 'gemini' ? 'Gemini CLI' : 'Claude Code'}...`);
   logger.blank();
 
   if (selectedAI === 'gemini') {
-    await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt);
+    await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt, devPort);
   } else {
-    await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt);
+    await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt, devPort);
   }
 }
 
@@ -593,7 +609,8 @@ async function handleClaudeCodeSetup(
   projectPath: string,
   config: ProjectConfig,
   autoAccept: boolean,
-  initialPrompt: string
+  initialPrompt: string,
+  devPort: number
 ): Promise<boolean> {
   let installType: AIInstallType = 'none';
 
@@ -628,7 +645,7 @@ async function handleClaudeCodeSetup(
 
   if (installType !== 'none') {
     // Launch Claude Code with provided params
-    await launchClaudeCode(projectPath, installType, initialPrompt, autoAccept, config.features);
+    await launchClaudeCode(projectPath, installType, initialPrompt, autoAccept, config.features, devPort);
     return true;
   }
 
@@ -640,7 +657,8 @@ async function handleGeminiSetup(
   projectPath: string,
   config: ProjectConfig,
   autoAccept: boolean,
-  initialPrompt: string
+  initialPrompt: string,
+  devPort: number
 ): Promise<boolean> {
   let installType: AIInstallType = 'none';
 
@@ -675,7 +693,7 @@ async function handleGeminiSetup(
 
   if (installType !== 'none') {
     // Launch Gemini CLI with provided params
-    await launchGeminiCode(projectPath, installType, initialPrompt, autoAccept, config.features);
+    await launchGeminiCode(projectPath, installType, initialPrompt, autoAccept, config.features, devPort);
     return true;
   }
 

@@ -43,7 +43,8 @@
     "ora": "^8.1.1",
     "execa": "^9.5.2",
     "fs-extra": "^11.2.0",
-    "open": "^10.0.0"
+    "open": "^10.0.0",
+    "supabase": "^2.54.11"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
