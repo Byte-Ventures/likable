@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { ProjectConfig, promptProjectConfig } from '../utils/prompts.js';
 import { scaffoldProject, checkPrerequisites } from '../utils/scaffold.js';
-import { ServiceManager, checkDocker, checkSupabaseCLI } from '../utils/services.js';
+import { ServiceManager, checkDocker } from '../utils/services.js';
 import {
   checkClaudeCodeInstalled,
   installClaudeCode,
@@ -45,6 +45,34 @@ export async function wizardCommand(quickStart: boolean = false): Promise<void> 
   } else {
     // No LIKABLE.md found - create new project
     await createProjectWizard(quickStart);
+  }
+}
+
+async function detectProjectFeatures(projectPath: string): Promise<string[]> {
+  // Detect features from existing project by reading package.json
+  try {
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    const packageJsonContent = await fs.readFile(packageJsonPath, 'utf-8');
+    const packageJson = JSON.parse(packageJsonContent);
+
+    const features: string[] = [];
+    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+
+    // Detect Supabase features
+    if (deps['@supabase/supabase-js']) {
+      features.push('database', 'auth-email', 'auth-oauth', 'uploads', 'realtime');
+    }
+
+    // Detect Stripe
+    if (deps['@stripe/stripe-js']) {
+      features.push('stripe');
+    }
+
+    return features;
+  } catch (error) {
+    // If we can't read package.json, default to common features
+    logger.warning('Could not detect project features, assuming Supabase is available');
+    return ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'];
   }
 }
 
@@ -89,24 +117,32 @@ async function continueWorkingWizard(): Promise<void> {
   }
 
   logger.blank();
-  logger.info('Starting dev server...');
 
-  // Start dev server in background
+  // Start dev server in background (only for Gemini - Claude will start it itself)
   const projectPath = process.cwd();
-  const serviceManager = new ServiceManager(projectPath);
 
-  try {
-    await serviceManager.startDevServer(true);
-    logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
-    logger.blank();
-  } catch (error) {
-    logger.warning('Failed to start dev server');
-    logger.info('You can start it manually: npm run dev');
-    logger.blank();
+  // Detect project features for proper tool whitelisting
+  const features = await detectProjectFeatures(projectPath);
+
+  if (selectedAI === 'gemini') {
+    logger.info('Starting dev server...');
+    const serviceManager = new ServiceManager(projectPath);
+
+    try {
+      await serviceManager.startDevServer(true);
+      logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
+      logger.blank();
+    } catch (error) {
+      logger.warning('Failed to start dev server');
+      logger.info('You can start it manually: npm run dev');
+      logger.blank();
+    }
   }
 
   // Launch AI with prompt to ask user what to do
-  const initialPrompt = `The dev server is already running at http://localhost:${DEFAULT_DEV_PORT}.
+  const initialPrompt = selectedAI === 'claude'
+    ? `Start the dev server with \`npm run dev\`. Then read README.md and LIKABLE.md to understand the project context. After that, ask the user what they would like to work on or what changes they want to make.`
+    : `The dev server is already running at http://localhost:${DEFAULT_DEV_PORT}.
 
 Read README.md and LIKABLE.md to understand the project context. Then ask the user what they would like to work on or what changes they want to make.`;
 
@@ -114,9 +150,9 @@ Read README.md and LIKABLE.md to understand the project context. Then ask the us
   logger.blank();
 
   if (selectedAI === 'gemini') {
-    await launchGeminiCode(projectPath, 'global', initialPrompt, true, []);
+    await launchGeminiCode(projectPath, 'global', initialPrompt, true, features);
   } else {
-    await launchClaudeCode(projectPath, 'global', initialPrompt, true, []);
+    await launchClaudeCode(projectPath, 'global', initialPrompt, true, features);
   }
 }
 
@@ -175,41 +211,87 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   // Check Node.js
   logger.success('Node.js found');
 
-  // Check Docker
-  const hasDocker = await checkDocker();
+  // Check prerequisites
+  const prereqs = await checkPrerequisites();
+  const hasDocker = prereqs.docker;
+  const hasGit = prereqs.git;
+
   if (!hasDocker) {
     logger.warning('Docker is not running');
-    logger.info('Supabase requires Docker Desktop');
-    logger.info('Download: https://www.docker.com/products/docker-desktop');
-    logger.blank();
+    if (!quickStart) {
+      // Interactive mode: show instructions and prompt
+      logger.info('Supabase requires Docker Desktop');
+      logger.info('Download: https://www.docker.com/products/docker-desktop');
+      logger.blank();
 
-    const { continueWithoutDocker } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'continueWithoutDocker',
-        message: 'Continue without Docker? (You can add Supabase later)',
-        default: false,
-      },
-    ]);
+      const { continueWithoutDocker } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'continueWithoutDocker',
+          message: 'Continue without Docker? (You can add Supabase later)',
+          default: false,
+        },
+      ]);
 
-    if (!continueWithoutDocker) {
-      logger.info('Please start Docker and run "likable" again');
-      return;
+      if (!continueWithoutDocker) {
+        logger.info('Please start Docker and run "likable" again');
+        return;
+      }
+    } else {
+      // Quickstart mode: just continue without prompting
+      logger.info('Continuing without Docker (Supabase features will be skipped)');
     }
   } else {
     logger.success('Docker is running');
   }
 
-  // Check Supabase CLI
-  const hasSupabase = await checkSupabaseCLI();
-  if (!hasSupabase) {
-    logger.warning('Supabase CLI not found');
-    logger.info('Install: brew install supabase/tap/supabase (macOS)');
-    logger.info('Or visit: https://supabase.com/docs/guides/cli');
-    logger.blank();
+  // Check Git
+  if (!hasGit) {
+    logger.warning('Git is not installed');
+    if (!quickStart) {
+      // Interactive mode: show instructions and prompt
+      logger.info('Git is recommended for version control');
+      logger.blank();
+
+      // OS-specific installation instructions
+      const platform = process.platform;
+      if (platform === 'darwin') {
+        logger.info('Install Git for Mac:');
+        logger.info('  brew install git');
+        logger.info('  or: xcode-select --install');
+      } else if (platform === 'win32') {
+        logger.info('Install Git for Windows:');
+        logger.info('  https://git-scm.com/download/win');
+      } else {
+        logger.info('Install Git for Linux:');
+        logger.info('  sudo apt install git  # Debian/Ubuntu');
+        logger.info('  sudo yum install git  # CentOS/RHEL');
+      }
+      logger.blank();
+
+      const { continueWithoutGit } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'continueWithoutGit',
+          message: 'Continue without Git? (You can initialize git later)',
+          default: true,
+        },
+      ]);
+
+      if (!continueWithoutGit) {
+        logger.info('Please install Git and run "likable" again');
+        return;
+      }
+    } else {
+      // Quickstart mode: just continue without prompting
+      logger.info('Continuing without Git (version control will be skipped)');
+    }
   } else {
-    logger.success('Supabase CLI found');
+    logger.success('Git is installed');
   }
+
+  // Supabase CLI is now included as a dev dependency in the project
+  logger.success('Supabase CLI will be available via npx in your project');
 
   logger.blank();
   logger.section('📋 Step 3/7: Project Configuration');
@@ -224,7 +306,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
         type: 'input',
         name: 'description',
         message: 'What do you want to build?',
-        default: 'Flappy Alpaca - a Flappy Bird style game where you control an alpaca flying through obstacles. Tap or press space to flap and avoid hitting pipes.',
+        default: 'Flappy Space Alpaca - a Flappy Bird inspired game in space with an alpaca character',
       },
     ]);
 
@@ -283,6 +365,12 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
       features: [], // No features by default (same as normal wizard)
       userStory: '',
     };
+
+    // In quickstart mode, add all Supabase features if Docker is available
+    // This ensures Supabase tools are added to Claude's allowed tools
+    if (hasDocker) {
+      config.features.push('auth-email', 'auth-oauth', 'database', 'uploads', 'realtime');
+    }
 
     targetPath = path.resolve(process.cwd(), config.name);
 
@@ -343,7 +431,8 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
       config,
       targetPath,
       skipInstall: false,
-      skipSupabase: !needsSupabase || !hasSupabase || !hasDocker,
+      skipSupabase: !needsSupabase || !hasDocker,
+      hasGit,
     });
   } catch (error) {
     logger.error('Failed to create project');
@@ -358,7 +447,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
 
   let serviceManager: ServiceManager | undefined;
 
-  if (hasDocker && hasSupabase && needsSupabase) {
+  if (hasDocker && needsSupabase) {
     let startSupabase = quickStart; // Quick start always starts Supabase
 
     if (!quickStart) {
@@ -406,20 +495,26 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   logger.blank();
   logger.section('📋 Step 7/7: Start Dev Server');
 
-  // Initialize service manager if not already done
-  if (!serviceManager) {
-    serviceManager = new ServiceManager(targetPath);
-  }
+  // Start dev server in background (only for Gemini - Claude will start it itself)
+  if (selectedAI === 'gemini') {
+    // Initialize service manager if not already done
+    if (!serviceManager) {
+      serviceManager = new ServiceManager(targetPath);
+    }
 
-  try {
-    await serviceManager.startDevServer(true); // true = background mode
-    logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
-    logger.blank();
-  } catch (error) {
-    logger.warning('Failed to start dev server');
-    logger.info('💡 You can start it manually later:');
-    logger.code(`cd ${config.name}`);
-    logger.code('npm run dev');
+    try {
+      await serviceManager.startDevServer(true); // true = background mode
+      logger.success(`Dev server running at http://localhost:${DEFAULT_DEV_PORT}`);
+      logger.blank();
+    } catch (error) {
+      logger.warning('Failed to start dev server');
+      logger.info('💡 You can start it manually later:');
+      logger.code(`cd ${config.name}`);
+      logger.code('npm run dev');
+      logger.blank();
+    }
+  } else {
+    logger.info(`Claude Code will start the dev server for you.`);
     logger.blank();
   }
 
@@ -461,8 +556,8 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   }
 
   // Write context files for BOTH AIs (so user can switch later)
-  await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
-  await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept);
+  await writeAIContextMd('gemini', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
+  await writeAIContextMd('claude', projectPath, config, DEFAULT_DEV_PORT, autoAccept, hasGit);
   await writeLikableMd(selectedAI, projectPath, config, DEFAULT_DEV_PORT);
 
   logger.success('Created CLAUDE.md and GEMINI.md - you can switch AIs anytime!');

@@ -21,10 +21,54 @@ export async function initCommand(
   // Check prerequisites
   const prereqs = await checkPrerequisites();
 
+  // Check Git
+  if (!prereqs.git) {
+    logger.warning('Git is not installed');
+    logger.info('Git is recommended for version control');
+    logger.blank();
+
+    // OS-specific installation instructions
+    const platform = process.platform;
+    if (platform === 'darwin') {
+      logger.info('Install Git for Mac:');
+      logger.info('  brew install git');
+      logger.info('  or install Xcode Command Line Tools: xcode-select --install');
+    } else if (platform === 'win32') {
+      logger.info('Install Git for Windows:');
+      logger.info('  https://git-scm.com/download/win');
+    } else {
+      logger.info('Install Git for Linux:');
+      logger.info('  sudo apt install git  # Debian/Ubuntu');
+      logger.info('  sudo yum install git  # CentOS/RHEL');
+    }
+    logger.blank();
+
+    const proceed = await confirmAction('Continue without Git? (You can add it later)', false);
+    if (!proceed) {
+      logger.info('Setup cancelled');
+      return;
+    }
+  }
+
+  // Check Docker
   if (!prereqs.docker) {
     logger.warning('Docker is not installed');
     logger.info('Docker is required for local Supabase development');
-    logger.info('Install from: https://www.docker.com/products/docker-desktop');
+    logger.blank();
+
+    // OS-specific installation instructions
+    const platform = process.platform;
+    if (platform === 'darwin') {
+      logger.info('Install Docker Desktop for Mac:');
+      logger.info('  brew install --cask docker');
+      logger.info('  or download from https://www.docker.com/products/docker-desktop');
+    } else if (platform === 'win32') {
+      logger.info('Install Docker Desktop for Windows:');
+      logger.info('  https://www.docker.com/products/docker-desktop');
+    } else {
+      logger.info('Install Docker for Linux:');
+      logger.info('  https://docs.docker.com/engine/install/');
+    }
     logger.blank();
 
     const proceed = await confirmAction('Continue without Docker? (You can add it later)', false);
@@ -33,13 +77,6 @@ export async function initCommand(
       return;
     }
     options.skipSupabase = true;
-  }
-
-  if (!prereqs.supabase) {
-    logger.warning('Supabase CLI is not installed');
-    logger.info('The Supabase CLI is recommended for local development');
-    logger.info('Install from: https://supabase.com/docs/guides/cli');
-    logger.blank();
   }
 
   // Get project configuration
@@ -69,6 +106,7 @@ export async function initCommand(
       targetPath,
       skipInstall: options.skipInstall,
       skipSupabase: options.skipSupabase,
+      hasGit: prereqs.git,
     });
 
     // Success message
@@ -79,8 +117,8 @@ export async function initCommand(
     logger.section('Next steps:');
     logger.code(`cd ${config.name}`);
 
-    if (!options.skipSupabase && prereqs.supabase) {
-      logger.code('supabase start');
+    if (!options.skipSupabase && prereqs.docker) {
+      logger.code('npx supabase start');
       logger.info('  (Starts local Supabase - copy the API URL and anon key to .env.local)');
     }
 
@@ -88,7 +126,11 @@ export async function initCommand(
     logger.info('  (Starts development server)');
     logger.blank();
 
-    if (prereqs.docker && prereqs.supabase) {
+    if (prereqs.git) {
+      logger.info('💡 Git repository initialized - version control is ready to use');
+    }
+
+    if (prereqs.docker) {
       logger.info('💡 Tip: After starting Supabase, update .env.local with your credentials');
       logger.info('💡 Tip: Use Claude Desktop with Likable MCP for AI-powered development');
       logger.code('likable mcp register');

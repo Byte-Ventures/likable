@@ -4,16 +4,18 @@ import { execa } from 'execa';
 import { logger } from './logger.js';
 import type { ProjectConfig } from './prompts.js';
 import { DEFAULT_DEV_PORT } from './constants.js';
+import { allocateSupabasePorts, updateSupabaseConfig, updateEnvWithPorts, type SupabasePortConfig } from './portManager.js';
 
 export interface ScaffoldOptions {
   config: ProjectConfig;
   targetPath: string;
   skipInstall?: boolean;
   skipSupabase?: boolean;
+  hasGit?: boolean;
 }
 
 export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
-  const { config, targetPath, skipInstall, skipSupabase } = options;
+  const { config, targetPath, skipInstall, skipSupabase, hasGit } = options;
 
   // Create project directory
   logger.startSpinner(`Creating project directory: ${config.name}`);
@@ -50,7 +52,17 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
     ...packageJson.dependencies,
     '@supabase/supabase-js': '^2.45.7',
     'react-router-dom': '^7.1.2',
+    'react-markdown': '^9.0.1',
   };
+
+  // Ensure TypeScript and Supabase CLI are available
+  if (config.typescript) {
+    packageJson.devDependencies = {
+      ...packageJson.devDependencies,
+      'typescript': '^5.7.2',
+      'supabase': '^2.54.11',
+    };
+  }
 
   // Add component library dependencies
   if (config.componentLibrary === 'shadcn') {
@@ -115,9 +127,10 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
     }
   }
 
-  // Setup Supabase
+  // Setup Supabase and allocate ports
+  let supabasePorts: SupabasePortConfig | undefined;
   if (!skipSupabase) {
-    await setupSupabase(targetPath);
+    supabasePorts = await setupSupabase(targetPath);
   }
 
   // Create Supabase client file
@@ -131,29 +144,37 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
   // Create Vite config with custom port
   await createViteConfig(targetPath, DEFAULT_DEV_PORT);
 
-  // Create .env.local file
-  await createEnvFile(targetPath);
+  // Create .env.local file with correct Supabase URL
+  if (supabasePorts) {
+    await createEnvFile(targetPath, supabasePorts);
+  } else {
+    // Create with default ports if Supabase was skipped
+    await createEnvFile(targetPath, {
+      api: 54321,
+      db: 54322,
+      studio: 54323,
+      inbucket: 54324,
+      analytics: 54327,
+      pooler: 54329,
+    });
+  }
 
   // Create basic project structure
   await createProjectStructure(targetPath, config);
+
+  // Initialize Git repository if git is available
+  if (hasGit) {
+    await createGitignore(targetPath);
+    await initGitRepository(targetPath);
+  }
 }
 
-async function setupSupabase(projectPath: string): Promise<void> {
+async function setupSupabase(projectPath: string): Promise<SupabasePortConfig> {
   logger.startSpinner('Setting up Supabase');
 
-  // Check if supabase CLI is installed
+  // Initialize Supabase using npx (CLI is now a dev dependency)
   try {
-    await execa('supabase', ['--version'], { stdio: 'pipe' });
-  } catch {
-    logger.warning('Supabase CLI not found. Please install it: https://supabase.com/docs/guides/cli');
-    logger.info('Run: brew install supabase/tap/supabase (macOS)');
-    logger.stopSpinner();
-    return;
-  }
-
-  // Initialize Supabase
-  try {
-    await execa('supabase', ['init'], {
+    await execa('npx', ['supabase', 'init'], {
       cwd: projectPath,
       stdio: 'pipe',
     });
@@ -163,8 +184,24 @@ async function setupSupabase(projectPath: string): Promise<void> {
     throw error;
   }
 
+  // Allocate ports for Supabase services
+  logger.startSpinner('Checking port availability');
+  const ports = await allocateSupabasePorts();
+
+  // Update config.toml if using non-default ports
+  if (ports.api !== 54321) {
+    logger.succeedSpinner(`Using alternative ports (base: ${ports.api})`);
+    logger.startSpinner('Updating Supabase configuration');
+    await updateSupabaseConfig(projectPath, ports);
+    logger.succeedSpinner('Supabase configuration updated');
+  } else {
+    logger.succeedSpinner('Using default ports');
+  }
+
   // Start local Supabase (optional - user can do this later)
-  logger.info('To start local Supabase, run: cd ' + path.basename(projectPath) + ' && supabase start');
+  logger.info('To start local Supabase, run: cd ' + path.basename(projectPath) + ' && npx supabase start');
+
+  return ports;
 }
 
 async function createSupabaseClient(projectPath: string, typescript: boolean): Promise<void> {
@@ -252,11 +289,12 @@ export default defineConfig({
   logger.success(`Vite configured (port ${port})`);
 }
 
-async function createEnvFile(projectPath: string): Promise<void> {
+async function createEnvFile(projectPath: string, ports: SupabasePortConfig): Promise<void> {
+  const apiUrl = `http://127.0.0.1:${ports.api}`;
   const envContent = `# Supabase Configuration
 # Get these values by running: supabase status
 # Or from your Supabase project dashboard
-VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_URL=${apiUrl}
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 # For production, replace with your Supabase project URL and keys
@@ -285,9 +323,9 @@ async function createProjectStructure(projectPath: string, config: ProjectConfig
   logger.success('Created project structure');
 }
 
-export async function checkPrerequisites(): Promise<{ docker: boolean; supabase: boolean }> {
+export async function checkPrerequisites(): Promise<{ docker: boolean; git: boolean }> {
   let docker = false;
-  let supabase = false;
+  let git = false;
 
   try {
     await execa('docker', ['--version'], { stdio: 'pipe' });
@@ -297,11 +335,73 @@ export async function checkPrerequisites(): Promise<{ docker: boolean; supabase:
   }
 
   try {
-    await execa('supabase', ['--version'], { stdio: 'pipe' });
-    supabase = true;
+    await execa('git', ['--version'], { stdio: 'pipe' });
+    git = true;
   } catch {
-    // Supabase CLI not installed
+    // Git not installed
   }
 
-  return { docker, supabase };
+  return { docker, git };
+}
+
+async function createGitignore(projectPath: string): Promise<void> {
+  const gitignoreContent = `# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/dist
+/build
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Supabase
+.branches
+.temp
+`;
+
+  await fs.writeFile(path.join(projectPath, '.gitignore'), gitignoreContent);
+  logger.success('Created .gitignore');
+}
+
+async function initGitRepository(projectPath: string): Promise<void> {
+  logger.startSpinner('Initializing git repository');
+
+  try {
+    await execa('git', ['init'], {
+      cwd: projectPath,
+      stdio: 'pipe',
+    });
+    logger.succeedSpinner('Git repository initialized');
+  } catch (error) {
+    logger.failSpinner('Failed to initialize git repository');
+    throw error;
+  }
 }

@@ -187,21 +187,20 @@ export async function launchClaudeCode(
           ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
         );
 
-        const allowedTools = [
-          'Bash(npm:*)',
-          'Bash(npx:*)',
-          ...(needsSupabase ? ['Bash(supabase:*)'] : []),
-          'Bash(git:*)',
-          'Bash(node:*)',
-          'Bash(open:*)',
-          'Read',
-          'Glob',
-          'Grep'
-        ].join(' ');
-
-        // Whitelist development tools (space-separated list as single argument)
-        // Note: execa handles proper escaping automatically - don't add quotes
-        args.push('--allowedTools', allowedTools);
+        // Whitelist development tools (each as separate argument)
+        args.push('--allowedTools');
+        args.push('Bash(npm:*)');
+        args.push('Bash(npx:*)');
+        if (needsSupabase) {
+          args.push('Bash(supabase:*)');
+        }
+        args.push('Bash(git:*)');
+        args.push('Bash(node:*)');
+        args.push('Bash(open:*)');
+        args.push('Bash(find:*)');
+        args.push('Read');
+        args.push('Glob');
+        args.push('Grep');
       }
 
       // Add -- to explicitly end options before positional argument
@@ -236,21 +235,20 @@ export async function launchClaudeCode(
           ['database', 'auth-email', 'auth-oauth', 'uploads', 'realtime'].includes(f)
         );
 
-        const allowedTools = [
-          'Bash(npm:*)',
-          'Bash(npx:*)',
-          ...(needsSupabase ? ['Bash(supabase:*)'] : []),
-          'Bash(git:*)',
-          'Bash(node:*)',
-          'Bash(open:*)',
-          'Read',
-          'Glob',
-          'Grep'
-        ].join(' ');
-
-        // Whitelist development tools (space-separated list as single argument)
-        // Note: execa handles proper escaping automatically - don't add quotes
-        args.push('--allowedTools', allowedTools);
+        // Whitelist development tools (each as separate argument)
+        args.push('--allowedTools');
+        args.push('Bash(npm:*)');
+        args.push('Bash(npx:*)');
+        if (needsSupabase) {
+          args.push('Bash(supabase:*)');
+        }
+        args.push('Bash(git:*)');
+        args.push('Bash(node:*)');
+        args.push('Bash(open:*)');
+        args.push('Bash(find:*)');
+        args.push('Read');
+        args.push('Glob');
+        args.push('Grep');
       }
 
       // Add -- to explicitly end options before positional argument
