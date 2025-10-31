@@ -85,9 +85,10 @@ After completing a component/feature:
 **CRITICAL RULES:**
 - Run TypeScript validation after EVERY file you create or modify
 - Run build check after completing each component or feature${hasGit ? `
-- Commit your work after each completed feature/component` : ''}
+- MANDATORY: Commit after build succeeds - this is NOT optional!` : ''}
 - Watch your dev server terminal for compilation errors
-- If you see errors, STOP and fix them immediately
+- If you see errors, STOP and fix them immediately${hasGit ? `
+- Commits are part of validation - skipping them is like skipping TypeScript checks` : ''}
 
 **Expected Warnings (can be ignored):**
 - Tailwind "no utility classes detected" during Phase 1 (before styling)` : `**YOU MUST RUN THESE COMMANDS:**
@@ -104,8 +105,9 @@ After completing a component/feature:
 **CRITICAL RULES:**
 - Run TypeScript validation after EVERY file you create or modify
 - Run build check after completing each component or feature${hasGit ? `
-- Commit your work after each completed feature/component` : ''}
-- If you see errors, STOP and fix them immediately
+- MANDATORY: Commit after build succeeds - this is NOT optional!` : ''}
+- If you see errors, STOP and fix them immediately${hasGit ? `
+- Commits are part of validation - skipping them is like skipping TypeScript checks` : ''}
 
 **Expected Warnings (can be ignored):**
 - Tailwind "no utility classes detected" during Phase 1 (before styling)`}
@@ -304,7 +306,8 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
    - All components export/import correctly
    - TypeScript interfaces defined for all data
    - **MANDATORY:** Run \`npx tsc --noEmit\` - MUST show zero errors
-   - **MANDATORY:** Run \`npm run build\` - MUST complete without errors
+   - **MANDATORY:** Run \`npm run build\` - MUST complete without errors${hasGit ? `
+   - **MANDATORY:** Run \`git add .\` then \`git commit -m "feat: complete UI skeleton and styling"\`` : ''}
    - **STOP:** If ANY errors exist, fix them before Phase 4
    - Open browser and manually test UI flow
 
@@ -313,17 +316,20 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
    - Implement real event handlers
    - Add form submission and business logic
    - **MUST VALIDATE:** Run \`npx tsc --noEmit\` after each integration
-   - Test each integration as you go
+   - Test each integration as you go${hasGit ? `
+   - **MANDATORY:** After completing each feature, run \`git add <files>\` and \`git commit -m "feat: description"\`` : ''}
 
 **Implementation Guidelines:**
 - **Follow the phases** - Complete each phase fully before moving to the next
 - **Validate constantly** - Run \`npx tsc --noEmit\` after EVERY file change (not just at checkpoints)
-- **Zero tolerance for errors** - If validation fails, fix it immediately, no exceptions
+- **Zero tolerance for errors** - If validation fails, fix it immediately, no exceptions${hasGit ? `
+- **Commit after build** - After \`npm run build\` succeeds, ALWAYS git add + commit. This is validation, not optional.` : ''}
 - **Verify exports** - Always check that components/functions are properly exported and imported
 - **Validate code frequently** - After creating or modifying components:
   1. Run \`npx tsc --noEmit\` to check for TypeScript errors (missing exports, type errors, etc.)
   2. Check your dev server output for compilation errors
-  3. Fix any errors immediately before adding more code
+  3. Fix any errors immediately before adding more code${hasGit ? `
+  4. After component works: \`npm run build && git add <files> && git commit -m "feat: add ComponentName"\`` : ''}
 - **Test as you go** - After creating each component, verify it compiles and runs without errors
 - If you see errors in TypeScript check or dev server output, stop and fix them before proceeding
 - **Complete the MVP** - All features listed in SPEC.md must be fully implemented before the MVP is considered done
@@ -334,17 +340,26 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 - **IMPORTANT:** Open the dev server in the browser so the user can see the app as you build it. Use the 'open' command to launch the browser.
 - Watch for compilation errors and address them immediately
 
-**Validation Workflow (DO THIS EVERY TIME):**
+**Validation Workflow (MANDATORY - DO THIS EVERY TIME):**
 1. Create or modify a file
 2. Run \`npx tsc --noEmit\`
 3. If errors: Fix them immediately
 4. If no errors: Continue to next file
 5. After completing a component: Run \`npm run build\`${hasGit ? `
-6. If build succeeds: \`git add <files>\` and \`git commit -m "feat: description"\`
-7. Repeat` : `
+6. MANDATORY: \`git add <files>\` - Stage your changes
+7. MANDATORY: \`git commit -m "feat: description"\` - Commit with conventional format
+8. Repeat` : `
 6. Repeat`}
 
-Never skip step 2. Never skip step 5 after components.${hasGit ? ` Never skip step 6 after completing features.` : ''}`;
+${hasGit ? `**CRITICAL - Validation includes commits:**
+- Steps 2, 5, 6, 7 are MANDATORY validation steps
+- Never skip TypeScript check (step 2)
+- Never skip build (step 5)
+- Never skip git add (step 6)
+- Never skip git commit (step 7)
+- Skipping commits = validation failure = broken workflow` : `**CRITICAL - Validation steps:**
+- Never skip TypeScript check (step 2)
+- Never skip build after components (step 5)`}`;
 
     const filePath = path.join(projectPath, 'LIKABLE.md');
     await fs.writeFile(filePath, content, 'utf-8');
