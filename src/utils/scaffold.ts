@@ -6,6 +6,17 @@ import type { ProjectConfig } from './prompts.js';
 import { DEFAULT_DEV_PORT } from './constants.js';
 import { allocateSupabasePorts, allocateDevPort, updateSupabaseConfig, cleanupSupabaseConfig, updateEnvWithPorts, type SupabasePortConfig } from './portManager.js';
 
+/**
+ * STDIO Strategy for subprocess execution:
+ * - stdio: 'inherit' - Use for interactive commands that may prompt the user
+ *   (e.g., supabase init, supabase start, git commands with user interaction)
+ *   This prevents hanging when permission prompts or confirmations are needed.
+ *
+ * - stdio: 'pipe' - Use for commands where we need to capture output
+ *   (e.g., supabase status for parsing JSON, version checks)
+ *   Only use this for fully non-interactive commands.
+ */
+
 export interface ScaffoldOptions {
   config: ProjectConfig;
   targetPath: string;
@@ -180,14 +191,32 @@ async function setupSupabase(projectPath: string): Promise<SupabasePortConfig> {
   logger.startSpinner('Setting up Supabase');
 
   // Initialize Supabase using npx (CLI is now a dev dependency)
+  // IMPORTANT: Use stdio: 'inherit' to pass through Docker/Supabase permission prompts
+  // This prevents the CLI from hanging when system permissions are requested
   try {
-    await execa('npx', ['supabase', 'init'], {
+    // Stop spinner before interactive command to allow Docker permission prompts to be visible
+    logger.stopSpinner();
+    logger.blank();
+    logger.info('Initializing Supabase (this may request Docker permissions)...');
+    logger.blank();
+
+    await execa('npx', ['supabase', 'init', '--yes', '--with-vscode-settings', 'false'], {
       cwd: projectPath,
-      stdio: 'pipe',
+      stdio: 'inherit', // Allow Docker permission prompts to be visible
     });
-    logger.succeedSpinner('Supabase initialized');
+
+    logger.success('Supabase initialized');
   } catch (error) {
-    logger.failSpinner('Failed to initialize Supabase');
+    logger.error('Failed to initialize Supabase');
+    if (error instanceof Error) {
+      logger.error(`Error details: ${error.message}`);
+    }
+    logger.blank();
+    logger.error('Supabase initialization failed. This may be due to:');
+    logger.info('  • Docker not running or missing permissions');
+    logger.info('  • Supabase CLI not properly installed');
+    logger.info('  • Network connectivity issues');
+    logger.blank();
     throw error;
   }
 

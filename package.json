@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "postbuild": "npm link",
+    "postbuild": "chmod +x dist/cli.js && npm link",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
     "lint": "eslint src --ext .ts",

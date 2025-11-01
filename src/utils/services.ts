@@ -54,10 +54,9 @@ export class ServiceManager {
       logger.succeedSpinner('Supabase status checked');
     }
 
-    logger.startSpinner('Starting Supabase...');
-
     try {
       logger.blank();
+      logger.info('Starting Supabase...');
       logger.info('This may take a minute on first run (downloading Docker images)...');
       logger.blank();
 
@@ -66,7 +65,7 @@ export class ServiceManager {
 
       // Start Supabase (without --output flag as it doesn't produce valid JSON)
       logger.info(`Running: npx supabase start (cwd: ${this.projectPath})`);
-      await execa('npx', ['supabase', 'start'], {
+      await execa('npx', ['supabase', 'start', '--yes'], {
         cwd: this.projectPath,
         stdio: 'inherit', // Show Docker pull progress and startup logs to user
       });
@@ -81,10 +80,10 @@ export class ServiceManager {
       });
 
       logger.info(`Supabase status output: ${stdout}`);
-      logger.succeedSpinner('Supabase started successfully');
+      logger.success('Supabase started successfully');
       return this.extractSupabaseCredentialsFromJSON(stdout);
     } catch (error: any) {
-      logger.failSpinner('Failed to start Supabase');
+      logger.error('Failed to start Supabase');
       logger.blank();
 
       // Show the error output to user since we're using stdio: 'pipe'

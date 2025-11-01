@@ -45,7 +45,7 @@ async function detectDevPort(projectPath: string): Promise<number> {
   return DEFAULT_DEV_PORT;
 }
 
-export async function wizardCommand(quickStart: boolean = false): Promise<void> {
+export async function wizardCommand(quickStart: boolean = false, description?: string): Promise<void> {
   // Welcome banner
   console.log();
   logger.header('🚀 Welcome to Likable!');
@@ -66,7 +66,7 @@ export async function wizardCommand(quickStart: boolean = false): Promise<void> 
     await continueWorkingWizard();
   } else {
     // No LIKABLE.md found - create new project
-    await createProjectWizard(quickStart);
+    await createProjectWizard(quickStart, description);
   }
 }
 
@@ -190,7 +190,7 @@ Read README.md and LIKABLE.md to understand the project context. Then ask the us
   await cleanupManager.stopSupabase();
 }
 
-async function createProjectWizard(quickStart: boolean = false): Promise<void> {
+async function createProjectWizard(quickStart: boolean = false, description?: string): Promise<void> {
   logger.blank();
   logger.section('📋 Step 1/7: AI Assistant Detection');
 
@@ -333,30 +333,42 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
   let config: ProjectConfig;
   let targetPath: string;
 
+  // Constant for surprise mode keyword
+  const SURPRISE_ME_KEYWORD = 'Surprise me';
+
   if (quickStart) {
     // Quick start mode: only ask for description, generate name with AI
-    let { description } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'description',
-        message: 'What do you want to build?',
-        default: 'Surprise me!',
-      },
-    ]);
+    let projectDescription: string;
 
-    // Generate creative description if user chose "Surprise me!"
-    if (description === 'Surprise me!') {
+    if (description) {
+      // Use description provided via CLI argument
+      projectDescription = description;
+    } else {
+      // Prompt user for description
+      const answer = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'description',
+          message: 'What do you want to build?',
+          default: SURPRISE_ME_KEYWORD,
+        },
+      ]);
+      projectDescription = answer.description;
+    }
+
+    // Generate creative description if user chose surprise mode
+    if (projectDescription === SURPRISE_ME_KEYWORD) {
       logger.blank();
       logger.info('🎲 Generating a surprise project idea...');
-      description = await generateSurpriseDescription(selectedAI);
-      logger.success(`How about: ${description}`);
+      projectDescription = await generateSurpriseDescription(selectedAI);
+      logger.success(`How about: ${projectDescription}`);
     }
 
     logger.blank();
     logger.info('Generating project name...');
 
     // Generate project names using AI
-    const suggestedNames = await generateProjectName(selectedAI, description);
+    const suggestedNames = await generateProjectName(selectedAI, projectDescription);
 
     // Find first available directory name
     let projectName = suggestedNames[0];
@@ -401,7 +413,7 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     // Build config with defaults
     config = {
       name: projectName,
-      description,
+      description: projectDescription,
       typescript: true,
       componentLibrary: 'shadcn',
       features: [], // No features by default (same as normal wizard)

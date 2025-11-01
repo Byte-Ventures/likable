@@ -22,9 +22,27 @@ const hasWizard = process.argv.includes('--wizard');
 // Check if running in interactive mode (no args provided)
 const isInteractive = process.argv.length === 2;
 
+// Check if a description argument is provided (first non-flag arg)
+const descriptionArg = process.argv.find((arg, index) =>
+  index > 1 && !arg.startsWith('--') && !arg.startsWith('-')
+);
+
+// Validate description is not empty and within reasonable bounds
+const validDescriptionArg = descriptionArg &&
+  descriptionArg.trim().length > 0 &&
+  descriptionArg.trim().length <= 500 // Prevent extremely long inputs
+  ? descriptionArg.trim()
+  : undefined;
+
 if (hasWizard) {
   // Run full wizard with all prompts
   wizardCommand(false).catch((error) => {
+    console.error(chalk.red('Error:'), error.message);
+    process.exit(1);
+  });
+} else if (validDescriptionArg) {
+  // Run quick-start mode with provided description
+  wizardCommand(true, validDescriptionArg).catch((error) => {
     console.error(chalk.red('Error:'), error.message);
     process.exit(1);
   });

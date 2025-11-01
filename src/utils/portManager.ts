@@ -154,6 +154,7 @@ export async function allocateDevPort(
 
 /**
  * Remove deprecated configuration keys from Supabase config.toml
+ * and disable analytics
  * @param projectPath - Absolute path to the project root directory
  */
 export async function cleanupSupabaseConfig(projectPath: string): Promise<void> {
@@ -169,6 +170,22 @@ export async function cleanupSupabaseConfig(projectPath: string): Promise<void> 
       /(\[auth\.external\.apple\][^\[]*?)email_optional\s*=\s*[^\n]+\n/s,
       '$1'
     );
+
+    // Disable analytics - add enabled = false if not present
+    // Simplified pattern to avoid ReDoS vulnerability
+    if (/\[analytics\][^\[]*enabled\s*=/.test(content)) {
+      // enabled key exists, update it to false
+      content = content.replace(
+        /(\[analytics\][^\[]*?)enabled\s*=\s*\w+/,
+        '$1enabled = false'
+      );
+    } else {
+      // enabled key doesn't exist, add it after [analytics] section header
+      content = content.replace(
+        /(\[analytics\]\s*)/,
+        '$1enabled = false\n'
+      );
+    }
 
     await fs.writeFile(configPath, content, 'utf-8');
   } catch (error) {

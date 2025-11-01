@@ -159,8 +159,12 @@ export async function installClaudeCode(
 export async function generateSurpriseDescription(
   selectedAI: 'claude' | 'gemini'
 ): Promise<string> {
+  const MIN_IDEA_LENGTH = 20;
+  const MAX_IDEA_LENGTH = 1000; // Allow longer descriptions for detailed app ideas
+  const UNSUPPORTED_FEATURES = ['camera', 'microphone', 'push notification', 'ai generat', 'machine learning', 'voice', 'speech', 'geolocation', 'gps'];
+
   const randomSeed = Math.floor(Math.random() * 1000000);
-  const prompt = `Generate 10 diverse React web app ideas. Vary the categories: productivity tools, social features, games, data visualization, health/fitness, education, entertainment, utilities, creative tools, and lifestyle apps. Each idea should be 1-2 sentences describing what the app does and what makes it interesting. Number each idea 1-10. Seed: ${randomSeed}`;
+  const prompt = `Generate 10 diverse React web app ideas based on existing, successful web apps. Vary the categories: productivity tools, social features, games, data visualization, health/fitness, education, entertainment, utilities, creative tools, and lifestyle apps. Keep it simple and realistic, only standard React + Supabase (no camera, microphone, push notifications, ai generated content or other advanced features). Each idea should be 1-2 sentences describing what the app does and what makes it likable. Number each idea 1-10. Seed: ${randomSeed}`;
 
   try {
     const result = selectedAI === 'claude'
@@ -175,7 +179,12 @@ export async function generateSurpriseDescription(
       .map(line => line.trim())
       .filter(line => /^\d+[\.):\-\s]/.test(line)) // Lines starting with number
       .map(line => line.replace(/^\d+[\.):\-\s]+/, '').trim()) // Remove number prefix
-      .filter(idea => idea.length >= 20 && idea.length <= 400); // Validate length
+      .filter(idea => idea.length >= MIN_IDEA_LENGTH && idea.length <= MAX_IDEA_LENGTH) // Validate length
+      .filter(idea => {
+        // Filter out ideas mentioning unsupported features
+        const lowerIdea = idea.toLowerCase();
+        return !UNSUPPORTED_FEATURES.some(feature => lowerIdea.includes(feature));
+      })
 
     if (ideas.length > 0) {
       // Pick a random idea from the list
