@@ -68,7 +68,7 @@ export class ServiceManager {
       logger.info(`Running: npx supabase start (cwd: ${this.projectPath})`);
       await execa('npx', ['supabase', 'start'], {
         cwd: this.projectPath,
-        stdio: 'pipe', // Suppress output during start
+        stdio: 'inherit', // Show Docker pull progress and startup logs to user
       });
 
       logger.blank();
