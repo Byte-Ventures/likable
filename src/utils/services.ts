@@ -230,6 +230,20 @@ export class ServiceManager {
     }
   }
 
+  async stopSupabase(): Promise<void> {
+    try {
+      logger.info('Stopping Supabase...');
+      await execa('npx', ['supabase', 'stop', '--no-backup'], {
+        cwd: this.projectPath,
+        stdio: 'pipe',
+      });
+      logger.success('Supabase stopped');
+    } catch (error) {
+      // Supabase might not be running, which is fine
+      logger.info('Supabase was not running or already stopped');
+    }
+  }
+
   async stopAll(): Promise<void> {
     const promises: Promise<void>[] = [];
 
@@ -250,6 +264,9 @@ export class ServiceManager {
         })
       );
     }
+
+    // Also stop Supabase Docker containers
+    promises.push(this.stopSupabase());
 
     await Promise.all(promises);
   }

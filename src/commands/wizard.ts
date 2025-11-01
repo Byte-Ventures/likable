@@ -183,6 +183,11 @@ Read README.md and LIKABLE.md to understand the project context. Then ask the us
   } else {
     await launchClaudeCode(projectPath, 'global', initialPrompt, true, features, devPort);
   }
+
+  // Clean up Supabase when agent exits
+  logger.blank();
+  const cleanupManager = new ServiceManager(projectPath);
+  await cleanupManager.stopSupabase();
 }
 
 async function createProjectWizard(quickStart: boolean = false): Promise<void> {
@@ -592,6 +597,12 @@ async function createProjectWizard(quickStart: boolean = false): Promise<void> {
     await handleGeminiSetup(geminiInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt, devPort);
   } else {
     await handleClaudeCodeSetup(claudeInstalled ? 'launch' : 'install', projectPath, config, autoAccept, initialPrompt, devPort);
+  }
+
+  // Clean up Supabase when agent exits
+  if (serviceManager) {
+    logger.blank();
+    await serviceManager.stopSupabase();
   }
 }
 
