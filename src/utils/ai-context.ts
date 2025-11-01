@@ -182,11 +182,12 @@ Follow these phases:
 1. Create the visual layout with typed dummy data (NO business logic or API calls yet)
 2. Make it visually complete with loading/error/empty states
 3. Validate exports and run \`npx tsc --noEmit\` to check for errors
-4. Wire up real ${hasSupabase ? 'business logic and data integration. Use Supabase if necessary to complete the MVP, but don\'t use Supabase unless the project requires it. Supabase is running with credentials in .env.local' : 'business logic and data integration'}
+4. Run \`npm run build\` to ensure production build works
+5. Wire up real ${hasSupabase ? 'business logic and data integration. Use Supabase if necessary to complete the MVP, but don\'t use Supabase unless the project requires it. Supabase is running with credentials in .env.local' : 'business logic and data integration.'}
 
 Start with Phase 1 - the UI skeleton and continue through all phases without stopping.
 
-CRITICAL: After EVERY file you create or modify, you MUST run \`npx tsc --noEmit\` and fix any errors before continuing. No exceptions. If you skip this, your code WILL break.`;
+CRITICAL: After EVERY file you create or modify, you MUST run BOTH \`npx tsc --noEmit\` and \`npm run build\`, and fix any errors before continuing. No exceptions. If you skip this, your code WILL break.`;
 }
 
 /**
@@ -291,7 +292,7 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
    - Set up routing and navigation
    - NO API calls or business logic yet
    - **Note:** Tailwind "no utility classes" warning is expected - you'll add styling in Phase 2
-   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` after EVERY file you create
+   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` and \`npm run build\` after EVERY file you create
    - **STOP:** Do not proceed to Phase 2 until all TypeScript errors are fixed
 
 2. **Phase 2 - Visual Completeness:** Make it look real with mock data
@@ -299,7 +300,7 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
    - Add Tailwind classes for styling (warning will disappear)
    - Add loading states, error states, empty states
    - Ensure all interactive elements have placeholder handlers (e.g., \`onClick={() => console.log('TODO')}\`)
-   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` after adding each state
+   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` and \`npm run build\` after adding each state
    - **Fix errors IMMEDIATELY** before adding more code
 
 3. **Phase 3 - Validation Checkpoint:** Verify before wiring data
@@ -315,19 +316,19 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
    - Replace dummy data with real API calls (Supabase, REST APIs, etc.)
    - Implement real event handlers
    - Add form submission and business logic
-   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` after each integration
+   - **MUST VALIDATE:** Run \`npx tsc --noEmit\` and \`npm run build\` after each integration
    - Test each integration as you go${hasGit ? `
    - **MANDATORY:** After completing each feature, run \`git add <files>\` and \`git commit -m "feat: description"\`` : ''}
 
 **Implementation Guidelines:**
 - **Follow the phases** - Complete each phase fully before moving to the next
-- **Validate constantly** - Run \`npx tsc --noEmit\` after EVERY file change (not just at checkpoints)
+- **Validate constantly** - Run \`npx tsc --noEmit\` and \`npm run build\` after EVERY file change (not just at checkpoints)
 - **Zero tolerance for errors** - If validation fails, fix it immediately, no exceptions${hasGit ? `
 - **Commit after build** - After \`npm run build\` succeeds, ALWAYS git add + commit. This is validation, not optional.` : ''}
 - **Verify exports** - Always check that components/functions are properly exported and imported
 - **Validate code frequently** - After creating or modifying components:
   1. Run \`npx tsc --noEmit\` to check for TypeScript errors (missing exports, type errors, etc.)
-  2. Check your dev server output for compilation errors
+  2. Run \`npm run build\` to check for compilation errors
   3. Fix any errors immediately before adding more code${hasGit ? `
   4. After component works: \`npm run build && git add <files> && git commit -m "feat: add ComponentName"\`` : ''}
 - **Test as you go** - After creating each component, verify it compiles and runs without errors
@@ -342,7 +343,7 @@ ${sanitizedDescription}${sanitizedUserStory && sanitizedUserStory.trim().length 
 
 **Validation Workflow (MANDATORY - DO THIS EVERY TIME):**
 1. Create or modify a file
-2. Run \`npx tsc --noEmit\`
+2. Run \`npx tsc --noEmit\` and \`npm run build\`
 3. If errors: Fix them immediately
 4. If no errors: Continue to next file
 5. After completing a component: Run \`npm run build\`${hasGit ? `
