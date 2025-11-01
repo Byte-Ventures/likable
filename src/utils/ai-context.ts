@@ -179,10 +179,10 @@ CRITICAL: You MUST get user approval before building anything!
 IMPORTANT: Once SPEC is approved, DO NOT pause to ask the user for permission or if you should continue. Just build the entire application autonomously according to the approved specification. Work through all phases systematically until the MVP is complete.
 
 Follow these phases:
-1. Create the visual layout with typed dummy data (${hasSupabase ? 'NO Supabase calls yet' : 'NO API calls yet'})
+1. Create the visual layout with typed dummy data (NO business logic or API calls yet)
 2. Make it visually complete with loading/error/empty states
 3. Validate exports and run \`npx tsc --noEmit\` to check for errors
-4. Wire up real ${hasSupabase ? 'Supabase integration (Supabase is running with credentials in .env.local)' : 'business logic and data integration'}
+4. Wire up real ${hasSupabase ? 'business logic and data integration. Use Supabase if necessary to complete the MVP, but don\'t use Supabase unless the project requires it. Supabase is running with credentials in .env.local' : 'business logic and data integration'}
 
 Start with Phase 1 - the UI skeleton and continue through all phases without stopping.
 
